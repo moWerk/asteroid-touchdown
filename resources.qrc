@@ -2,5 +2,8 @@
     <qresource prefix="/">
         <file>main.qml</file>
         <file>DeathShader.qml</file>
+        <file>asteroid-touchdown-ship.svg</file>
+        <file>asteroid-touchdown-ship-left-gear.svg</file>
+        <file>asteroid-touchdown-ship-right-gear.svg</file>
     </qresource>
 </RCC>

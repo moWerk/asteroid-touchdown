@@ -33,7 +33,7 @@ Application {
 
         // Gravity: world-units per second squared. Positive = downward.
         // At this value a free-falling ship takes ~22s to cross worldHeight.
-        readonly property real gravity:              180.0
+        readonly property real gravity:              40.0
 
         // Lower thruster: maximum upward force in world-units/s².
         // Must exceed gravity to allow hovering. Ratio ~2.2 gives snappy
@@ -55,7 +55,7 @@ Application {
         readonly property real lowerThrustFuelCutoff: 0.01
 
         // Accelerometer sensitivity. Multiply raw X delta to get tilt angle (degrees).
-        readonly property real tiltSensitivity:      18.0
+        readonly property real tiltSensitivity:      12.0
 
         // Smoothing factor for accelerometer (0=no smoothing, 1=frozen).
         readonly property real accelSmoothing:       0.75
@@ -82,7 +82,7 @@ Application {
         property real worldWidth:       Dims.l(100) * 3.0
 
         // Total height of world. Ship starts at y=0, surface bottom at worldHeight.
-        property real worldHeight:      Dims.l(100) * 4.5
+        property real worldHeight:      Dims.l(100) * 18.0
 
         // Width of world visible in the final locked-zoom approach phase.
         // 1.4× screen means ship at full size has ~20% margin each side.
@@ -93,7 +93,7 @@ Application {
 
         // Ship screen-space Y position as fraction from top (0=top, 1=bottom).
         // Kept here so ship appears in upper third during descent.
-        readonly property real shipScreenFraction: 0.18
+        readonly property real shipScreenFraction: 0.5
     }
 
     // ── Game state ────────────────────────────────────────────────────────────
@@ -160,7 +160,6 @@ Application {
 
     // ── Keep display on while playing ─────────────────────────────────────────
     onPlayingChanged: DisplayBlanking.preventBlanking = playing
-    Component.onCompleted: DisplayBlanking.preventBlanking = false
 
     // ── Accelerometer ─────────────────────────────────────────────────────────
     Accelerometer {
@@ -209,20 +208,20 @@ Application {
 
             // --- Read accelerometer deltas from baseline ---
             var dx = smoothedX - baselineX
-            var dy = smoothedY - baselineY   // positive = watch tilted away (upper thrust)
-                                              // negative = tilted toward user (lower thrust)
-
+            var dy = baselineY - smoothedY   // flipped: tilt screen away = lower thrust (positive)
+            //          tilt screen toward user = upper thrust
+            
             // --- Ship angle from X tilt ---
             var targetAngle = dx * physics.tiltSensitivity
             shipAngle = shipAngle * 0.8 + targetAngle * 0.2
-
+            
             // --- Thrust from Y tilt ---
-            // Lower thrust: Y delta negative (tilt watch toward user = rocket fires down)
-            var rawLower = Math.max(0.0, -dy - physics.thrustDeadZone) / (1.0 - physics.thrustDeadZone)
+            // Lower thrust: dy positive (tilt watch screen away = rocket fires, slows descent)
+            var rawLower = Math.max(0.0, dy - physics.thrustDeadZone) / (1.0 - physics.thrustDeadZone)
             rawLower = Math.min(1.0, rawLower)
-
-            // Upper thrust: Y delta positive (tilt watch away = top thrusters fire)
-            var rawUpper = Math.max(0.0, dy - physics.thrustDeadZone) / (1.0 - physics.thrustDeadZone)
+            
+            // Upper thrust: dy negative (tilt screen toward user = top thrusters, speeds descent)
+            var rawUpper = Math.max(0.0, -dy - physics.thrustDeadZone) / (1.0 - physics.thrustDeadZone)
             rawUpper = Math.min(1.0, rawUpper)
 
             // Apply fuel cutoffs
@@ -308,6 +307,7 @@ Application {
         // ── Placeholder ship ─────────────────────────────────────────────────
         // Diamond-shaped colored rect standing in for the SVG ship.
         // Replaced in chunk 3 with the actual SVG + flame items.
+        // ── Placeholder ship ─────────────────────────────────────────────────
         Item {
             id: shipItem
             width:  Dims.l(8)
@@ -315,26 +315,56 @@ Application {
             x: worldToScreenX(shipWorldX) - width / 2
             y: worldToScreenY(shipWorldY) - height / 2
             rotation: shipAngle
-
-            Rectangle {
+            
+            // Ship SVG — both landing poles intact
+            Image {
                 anchors.centerIn: parent
-                width:  parent.width * 0.72
-                height: parent.height * 0.72
+                width:  parent.width
+                height: parent.height
+                source: "asteroid-touchdown-ship.svg"
+                smooth: true
+            }
+            
+            // Lower thruster flame — bottom tip of diamond
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.verticalCenter
+                anchors.topMargin: parent.width * 0.36
+                width:  parent.width * 0.22
+                height: Dims.l(3) * thrustLower
+                color: "#FFFFA0"
+                opacity: thrustLower
+                Behavior on height { SmoothedAnimation { velocity: Dims.l(20) } }
+            }
+            
+            // Upper-left thruster flame — left tip, grows leftward/upward
+            Rectangle {
+                anchors.horizontalCenter: parent.left
+                anchors.horizontalCenterOffset: parent.width * 0.36
+                anchors.verticalCenter: parent.top
+                anchors.verticalCenterOffset: parent.height * 0.36
+                width:  parent.width * 0.075
+                height: Dims.l(1) + Dims.l(2) * thrustUpper
+                rotation: -45
+                transformOrigin: Item.Bottom
+                color: "#FFFFA0"
+                opacity: thrustUpper * (Math.abs(shipAngle) < 5 ? 1.0 : shipAngle < 0 ? 1.0 : 0.4)
+                Behavior on height { SmoothedAnimation { velocity: Dims.l(7) } }
+            }
+            
+            // Upper-right thruster flame — right tip, grows rightward/upward
+            Rectangle {
+                anchors.horizontalCenter: parent.right
+                anchors.horizontalCenterOffset: -parent.width * 0.36
+                anchors.verticalCenter: parent.top
+                anchors.verticalCenterOffset: parent.height * 0.36
+                width:  parent.width * 0.075
+                height: Dims.l(1) + Dims.l(2) * thrustUpper
                 rotation: 45
-                color: "transparent"
-                border.color: "#FFFFFF"
-                border.width: 1.5
-
-                // Lower thruster flame placeholder — white bar below center
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.bottom
-                    width:  parent.width * 0.3
-                    height: Dims.l(3) * thrustLower
-                    color: "#FFFFA0"
-                    opacity: thrustLower
-                    Behavior on height { SmoothedAnimation { velocity: Dims.l(20) } }
-                }
+                transformOrigin: Item.Bottom
+                color: "#FFFFA0"
+                opacity: thrustUpper * (Math.abs(shipAngle) < 5 ? 1.0 : shipAngle > 0 ? 1.0 : 0.4)
+                Behavior on height { SmoothedAnimation { velocity: Dims.l(7) } }
             }
         }
 
@@ -386,7 +416,8 @@ Application {
             id: thrustBarContainer
             anchors.right: parent.right
             anchors.rightMargin: Dims.l(3)
-            anchors.verticalCenter: parent.verticalCenter
+            anchors.top: parent.top
+            anchors.topMargin: Dims.l(8)
             width:  Dims.l(3.5)
             height: Dims.l(30)
 
@@ -412,34 +443,33 @@ Application {
             }
         }
 
-        // Altimeter — top left
+        // Altimeter — top center
         Label {
-            anchors.left: parent.left
+            anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.leftMargin: Dims.l(4)
-            anchors.topMargin: Dims.l(5)
+            anchors.topMargin: Dims.l(12)
             text: Math.round(altitude) + "m"
             font.pixelSize: Dims.l(5)
             opacity: 0.7
         }
-
-        // Level indicator — top right
+        
+        // Level indicator — top left
         Label {
-            anchors.right: parent.right
+            anchors.left: parent.left
             anchors.top: parent.top
-            anchors.rightMargin: Dims.l(4)
-            anchors.topMargin: Dims.l(5)
+            anchors.leftMargin: Dims.l(10)
+            anchors.topMargin: Dims.l(10)
             text: "L" + currentLevel
             font.pixelSize: Dims.l(5)
             opacity: 0.7
         }
-
-        // Timer — below altimeter
+        
+        // Timer — top right
         Label {
-            anchors.left: parent.left
+            anchors.right: parent.right
             anchors.top: parent.top
-            anchors.leftMargin: Dims.l(4)
-            anchors.topMargin: Dims.l(12)
+            anchors.rightMargin: Dims.l(10)
+            anchors.topMargin: Dims.l(10)
             text: {
                 var s = Math.floor(elapsedMs / 1000)
                 var m = Math.floor(s / 60)
@@ -687,6 +717,7 @@ Application {
     }
 
     Component.onCompleted: {
+        DisplayBlanking.preventBlanking = false
         currentLevel = 1
         selectingLevel = true
     }
