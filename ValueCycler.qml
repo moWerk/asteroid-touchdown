@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 - moWerk
+ * Copyright (C) 2026 - Timo Könnecke <github.com/moWerk>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ Item {
     Label {
         anchors.centerIn: parent
         text: currentValue
-        font.pixelSize: Dims.l(8)
+        font.pixelSize: Dims.l(10)
         horizontalAlignment: Text.AlignHCenter
     }
 

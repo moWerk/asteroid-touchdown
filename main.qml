@@ -31,18 +31,18 @@ Application {
     QtObject {
         id: physics
         readonly property real gravity:               30.0
-        readonly property real lowerThrustForce:      80.0
-        readonly property real upperThrustForce:      20.0
+        readonly property real lowerThrustForce:      70.0
+        readonly property real upperThrustForce:      15.0
         readonly property real lowerFuelDrainRate:    0.07
         readonly property real upperFuelDrainRate:    0.007
         readonly property real lowerThrustFuelCutoff: 0.05
         readonly property real tiltSensitivity:       12.0
         readonly property real accelSmoothing:        0.75
         readonly property real thrustDeadZone:        0.08
-        readonly property real maxLandingSpeed:       220.0
-        readonly property real maxLandingAngleMin:    5.0
-        readonly property real maxLandingAngleMax:    22.0
-        readonly property real upperLateralFraction:  0.02
+        readonly property real maxLandingSpeed:       120.0
+        readonly property real maxLandingAngleMin:    4.0
+        readonly property real maxLandingAngleMax:    20.0
+        readonly property real upperLateralFraction:  0.04
         readonly property real tiltLateralForce:      4.0
     }
 
@@ -66,7 +66,7 @@ Application {
         // Rock geometry
         property int  rockCount:                  55
         property real rockBaseRadius:             viewport.worldWidth * 0.008
-        property real rockRoughness:              0.60
+        property real rockRoughness:              0.80
         // Target pad width (level 1). Shrinks per level in generateWorld().
         property real targetPadWidth:             viewport.worldWidth * 0.05
         // Landing gear tip is this many world-units below ship center.
@@ -134,7 +134,9 @@ Application {
     // currentViewHeight lerps from startViewHeight down to lockViewHeight as
     // altitude drops from worldHeight to lockAltitude. startViewHeight > worldHeight
     // guarantees a visible zoom-out at game start.
+    
     property real currentViewHeight: {
+        if (landed) return viewport.lockViewHeight
         if (altitude <= viewport.lockAltitude) return viewport.lockViewHeight
         var t = Math.max(0, Math.min(1.0,
             (altitude - viewport.lockAltitude) /
@@ -306,19 +308,23 @@ Application {
                 // Minimum spacing between existing rocks
                 var tooClose = false
                 for (var ri = 0; ri < newRocks.length; ri++) {
-                    if (Math.abs(newRocks[ri].cx - cx) < r + newRocks[ri].r * 0.7) {
+                if (newRocks[ri].r < baseR * 2 && Math.abs(newRocks[ri].cx - cx) < r + newRocks[ri].r * 0.7) {
                         tooClose = true; break
                     }
                 }
                 if (tooClose) continue
                     
                     var cy    = fy
-                    var nVert = 5 + Math.floor(Math.random() * 4)
+                    var rockRoughness = rockRoll === 9 ? 0.95
+                                      : rockRoll === 4 ? 0.75
+                                      : roughness
+                    var nVert = rockRoll === 9 ? 7 + Math.floor(Math.random() * 4)
+                              : 5 + Math.floor(Math.random() * 4)
                     var verts = []
-                    
+
                     for (var j = 0; j < nVert; j++) {
                         var angle   = (j / nVert) * 2 * Math.PI - Math.PI / 2
-                        var perturb = 1.0 - roughness * 0.5 + Math.random() * roughness
+                        var perturb = 1.0 - rockRoughness * 0.5 + Math.random() * rockRoughness
                         var rv      = r * perturb
                         verts.push({ x: cx + Math.cos(angle) * rv,
                             y: cy + Math.sin(angle) * rv * 0.7 })
@@ -499,7 +505,7 @@ Application {
     NumberAnimation {
         id: deathAnim
         target: app; property: "deathProgress"
-        from: 0; to: 1; duration: 800; easing.type: Easing.InCubic
+        from: 0; to: 1; duration: 1000; easing.type: Easing.InCubic
         onStopped: { playerDying = false; showComms() }
     }
 
@@ -508,8 +514,8 @@ Application {
 
     SequentialAnimation {
         id: commsSequence
-        NumberAnimation { target: app; property: "commsOpacity"; to: 1.0; duration: 200 }
-        PauseAnimation  { duration: 2000 }
+        NumberAnimation { target: app; property: "commsOpacity"; to: 1.0; duration: 400 }
+        PauseAnimation  { duration: 3000 }
         NumberAnimation { target: app; property: "commsOpacity"; to: 0.0; duration: 400 }
         ScriptAction    { script: { showingComms = false; gameOver = true } }
     }
@@ -688,7 +694,21 @@ Application {
                 transformOrigin: Item.Top
                 opacity: Math.max(thrustUpper * (Math.abs(shipAngle) < 5 ? 1.0 : shipAngle < 0 ? 1.0 : 0.4), Math.min(1.0, Math.max(0.0, -shipAngle / 30.0)))
                 Behavior on height { SmoothedAnimation { velocity: Dims.l(15) } }
-            }
+            }          
+        }
+        
+                    
+        // Altitude readout
+        Label {
+                anchors.horizontalCenter: shipItem.horizontalCenter
+                anchors.bottom:              shipItem.top
+                anchors.bottomMargin:        Dims.l(3)
+                text:            Math.round(altitude) + "m"
+                font.pixelSize:  Dims.l(5)
+                font.family:         "Noto Sans"
+                font.styleName:      "Condensed Light"
+                opacity:         0.9
+                visible:         playing
         }
 
         // ── Death shader ──────────────────────────────────────────────────────
@@ -712,14 +732,15 @@ Application {
                 anchors.centerIn:    parent
                 text:                missionMessage
                 font.pixelSize:      Dims.l(14)
-                font.family:         "Noto Sans"
-                font.styleName:      "SemiCondensed SemiBold"
-                lineHeight:          0.8
+                font.family:         "Barlow"
+                font.styleName:      "Bold"
+                lineHeight:          0.9
                 lineHeightMode:      Text.ProportionalHeight
                 horizontalAlignment: Text.AlignHCenter
                 color: landed ? (shipWorldX >= world.targetPadXStart - 20 && shipWorldX <= world.targetPadXEnd + 20 ? "#DDFFB830" : "#DDAAFFAA") : "#DDFF6644"
                 wrapMode:            Text.WordWrap
-                width:               Dims.l(70)
+                width:               Dims.l(80)
+                clip: false
             }
             
             MouseArea {
@@ -782,43 +803,35 @@ Application {
             }
         }
 
-        // Altitude readout
+        // Level — Center bottom
         Label {
+            id: levelHud
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top:              parent.top
-            anchors.topMargin:        Dims.l(15)
-            text:            Math.round(altitude) + "m"
-            font.pixelSize:  Dims.l(4.5)
-            opacity:         0.7
-            visible:         playing
-        }
-
-        // Level — top left
-        Label {
-            anchors.left:       parent.left
-            anchors.top:        parent.top
-            anchors.leftMargin: Dims.l(10)
-            anchors.topMargin:  Dims.l(10)
+            anchors.bottom:        parent.bottom
+            anchors.bottomMargin:  Dims.l(2)
             text:           "L" + currentLevel
-            font.pixelSize: Dims.l(5)
-            opacity:        0.7
+            font.family:         "Xolonium"
+            font.styleName:      "Bold"
+            font.pixelSize: Dims.l(8)
+            opacity:        0.8
             visible:        playing
         }
 
-        // Timer — top right
+        // Timer — Center right
         Label {
-            anchors.right:       parent.right
-            anchors.top:         parent.top
-            anchors.rightMargin: Dims.l(10)
-            anchors.topMargin:   Dims.l(10)
+            anchors.bottom: levelHud.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottomMargin: Dims.l(1)
             text: {
                 var s  = Math.floor(elapsedMs / 1000)
                 var m  = Math.floor(s / 60)
                 var ds = Math.floor((elapsedMs % 1000) / 100)
                 return (m > 0 ? m + ":" : "") + (s % 60 < 10 && m > 0 ? "0" : "") + (s % 60) + "." + ds
             }
-            font.pixelSize: Dims.l(4.5)
-            opacity:        0.7
+            font.pixelSize: Dims.l(7)
+            font.family:         "Teko"
+            font.styleName:      "Bold"
+            opacity:        0.8
             visible:        playing
         }
 
@@ -830,19 +843,44 @@ Application {
 
             Column {
                 anchors.centerIn: parent
-                spacing: Dims.l(4)
+                spacing: Dims.l(7)
 
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
+                    visible:      selectingLevel
+
                     text:           "TOUCHDOWN"
-                    font.pixelSize: Dims.l(7)
+                    font.family:         "Barlow"
+                    font.styleName:      "Medium"                    
+                    font.pixelSize: Dims.l(11)
                     opacity:        0.9
                 }
+                
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: selectingLevel
+                    width: Dims.l(64)
+                    height: Dims.l(20)
+                    radius: height / 2
+                    color: "#55FFFFFF"
+                    Label { anchors.centerIn: parent; text: "ENTER ORBIT"; font.pixelSize: Dims.l(8) }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            generateWorld(currentLevel)
+                            selectingLevel   = false
+                            calibrating      = true
+                            calibrationCount = 0
+                            smoothedX = 0; smoothedY = 0
+                            calibrationTimer.start()
+                        }
+                    }
+                }                
                 
                 ValueCycler {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible:      selectingLevel
-                    width:        Dims.l(50)
+                    width:        parent.width
                     height:       Dims.l(14)
                     valueArray: {
                         var arr = []
@@ -857,28 +895,8 @@ Application {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible:        selectingLevel && TouchdownStorage.bestTime(currentLevel) > 0
                     text:           "Best: " + formatTime(TouchdownStorage.bestTime(currentLevel))
-                    font.pixelSize: Dims.l(5)
+                    font.pixelSize: Dims.l(6)
                     opacity:        0.7
-                }
-
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: selectingLevel
-                    width: Dims.l(54)
-                    height: Dims.l(21)
-                    radius: height / 2
-                    color: "#55FFFFFF"
-                    Label { anchors.centerIn: parent; text: "HOLD STILL"; font.pixelSize: Dims.l(7) }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            selectingLevel   = false
-                            calibrating      = true
-                            calibrationCount = 0
-                            smoothedX = 0; smoothedY = 0
-                            calibrationTimer.start()
-                        }
-                    }
                 }
             }
         }
@@ -888,7 +906,9 @@ Application {
             anchors.centerIn: parent
             visible:        calibrating
             text:           calibrationSeconds - calibrationCount
-            font.pixelSize: Dims.l(20)
+            font.pixelSize: Dims.l(22)
+            font.family:         "Xolonium"
+            font.styleName:      "Bold"
             opacity:        0.9
         }
 
@@ -901,35 +921,36 @@ Application {
             Behavior on opacity { NumberAnimation { duration: 400 } }
 
             Column {
+                id: gameOverTop
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                anchors.topMargin: Dims.l(12)
+                anchors.topMargin: Dims.l(4)
                 spacing: Dims.l(2)
+
+                // Time this run
+                Label {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text:           formatTime(elapsedMs)
+                    font.pixelSize: Dims.l(9)
+                }
 
                 // Result header
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text:           crashed ? "CRASHED" : "TOUCHDOWN!"
-                    font.pixelSize: Dims.l(7)
+                    font.family:         "Barlow"
+                    font.styleName:      "Medium" 
+                    font.pixelSize: Dims.l(11)
                     color:          crashed ? "#FF4400" : "#AAFFAA"
                 }
-
-                // Time this run
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible:        landed
-                    text:           formatTime(elapsedMs)
-                    font.pixelSize: Dims.l(8)
-                    color:          "#AAFFAA"
-                }
-
+                
                 // Pad bonus hint
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: landed && !(shipWorldX >= world.targetPadXStart &&
                                          shipWorldX <= world.targetPadXEnd)
                     text:           "Land on pad to advance!"
-                    font.pixelSize: Dims.l(4)
+                    font.pixelSize: Dims.l(5)
                     opacity:        0.6
                 }
 
@@ -937,7 +958,7 @@ Application {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: landed && TouchdownStorage.highestUnlockedLevel === currentLevel + 1
                     text:           "Level " + (currentLevel + 1) + " unlocked!"
-                    font.pixelSize: Dims.l(4.5)
+                    font.pixelSize: Dims.l(5)
                     color:          "#AAFFAA"
                 }
             }
@@ -946,12 +967,12 @@ Application {
             ListView {
                 id: scoresList
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: Dims.l(54)
-                anchors.bottom: buttonsRow.top
+                anchors.top: gameOverTop.bottom
+                anchors.topMargin: Dims.l(4)
+                anchors.bottom: buttonsColumn.top
                 anchors.bottomMargin: Dims.l(2)
-                width: Dims.l(60)
-                clip: true
+                width: Dims.l(55)
+                //clip: true
                 model: TouchdownStorage.highestUnlockedLevel
 
                 delegate: Item {
@@ -980,11 +1001,11 @@ Application {
             }
 
             // Buttons
-            Row {
-                id: buttonsRow
+            Column {
+                id: buttonsColumn
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: Dims.l(8)
+                anchors.bottomMargin: Dims.l(6)
                 spacing: Dims.l(3)
 
                 // Retry same level
@@ -994,7 +1015,7 @@ Application {
                     Label {
                         anchors.centerIn: parent
                         text:           "RETRY L" + currentLevel
-                        font.pixelSize: Dims.l(4)
+                        font.pixelSize: Dims.l(5)
                     }
                     MouseArea { anchors.fill: parent; onClicked: startLevel(currentLevel) }
                 }
@@ -1007,7 +1028,7 @@ Application {
                     Label {
                         anchors.centerIn: parent
                         text:           "NEXT L" + TouchdownStorage.highestUnlockedLevel
-                        font.pixelSize: Dims.l(4)
+                        font.pixelSize: Dims.l(5)
                         opacity:        0.9
                     }
                     MouseArea {
@@ -1051,8 +1072,7 @@ Application {
 
     Component.onCompleted: {
         DisplayBlanking.preventBlanking = false
-        currentLevel = 1
+        currentLevel = TouchdownStorage.highestUnlockedLevel
         selectingLevel = true
-        generateWorld(1)
     }
 }
