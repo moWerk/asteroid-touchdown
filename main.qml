@@ -27,7 +27,7 @@ Application {
     id: app
     anchors.fill: parent
 
-    // ── Physics tuning ────────────────────────────────────────────────────────
+    // ── Physics tuning
     QtObject {
         id: physics
         readonly property real gravity:               30.0
@@ -46,19 +46,23 @@ Application {
         readonly property real tiltLateralForce:      4.0
     }
 
-    // ── Viewport tuning ───────────────────────────────────────────────────────
+    // ── Viewport tuning
     QtObject {
         id: viewport
         // World dimensions in world-units (1 ≈ 1 screen pixel at zoomScale 1.0)
         property real worldWidth:       Dims.l(100) * 10.0
         property real worldHeight:      Dims.l(100) * 3.5
         // startViewHeight MUST be larger than worldHeight to produce visible zoom-out
-        property real startViewHeight:  Dims.l(100) * 5.1
-        property real lockViewHeight:   Dims.l(100) * 1.5
-        property real lockAltitude:     Dims.l(100) * 0.8
+        // Ship screen anchor — fraction from top (0 = top edge, 1 = bottom edge)
+        property real shipVerticalFraction: 0.22
+        // Floor screen anchor — world.floorY always maps to this screen Y
+        property real surfaceBottomMargin:  Dims.l(20)
+        // Minimum world-unit band kept visible between ship and floor.
+        // Prevents zoom from blowing up on final approach and touchdown.
+        property real minViewBand:          Dims.l(100) * 0.8
     }
 
-    // ── World generation tuning ───────────────────────────────────────────────
+    // ── World generation tuning
     QtObject {
         id: world
         // Floor sits at this fraction of worldHeight from the top
@@ -80,14 +84,14 @@ Application {
         property real targetPadXEnd:   0
     }
 
-    // ── Surface (canonical collision heightmap) ───────────────────────────────
+    // ── Surface (canonical collision heightmap) 
     QtObject {
         id: surface
         property int sampleCount: 220   // heightmap resolution across worldWidth
         property var points:      []    // [{wx, wy}] sorted by wx
     }
 
-    // ── Game state ────────────────────────────────────────────────────────────
+    // ── Game state
     property bool   calibrating:        false
     property int    calibrationSeconds: 3
     property int    calibrationCount:   0
@@ -107,7 +111,7 @@ Application {
     
     CommsMessages { id: comms }
 
-    // ── Physics state ─────────────────────────────────────────────────────────
+    // ── Physics state
     property real shipWorldX:  viewport.worldWidth / 2
     property real shipWorldY:  0.0
     property real vx:          0.0
@@ -118,23 +122,24 @@ Application {
     property real thrustUpper: 0.0
     property real lateralUpper: 0.0
 
-    // ── Accelerometer baseline ────────────────────────────────────────────────
+    // ── Accelerometer baseline
     property real baselineX: 0.0
     property real baselineY: 0.0
     property real smoothedX: 0.0
     property real smoothedY: 0.0
 
-    // ── Derived viewport ──────────────────────────────────────────────────────
-    // Altitude = distance from ship center to canonical surface directly below
-    property real altitude: {
-        if (surface.points.length < 2) return viewport.worldHeight - shipWorldY
-        return Math.max(0, surfaceYatX(shipWorldX) - shipWorldY)
-    }
+    // ── Derived viewport
+    // Both anchors are fixed screen positions — floor never drifts, ship never
+    // drifts. Zoom is derived purely from shipWorldY, not from altitude or the
+    // heightmap, so lateral flight over uneven terrain causes zero zoom bumps.
+    property real shipScreenY:    app.height * viewport.shipVerticalFraction
+    property real surfaceScreenY: app.height - viewport.surfaceBottomMargin
+    property real zoomScale: (surfaceScreenY - shipScreenY) / Math.max(viewport.minViewBand, world.floorY - shipWorldY)
 
     // currentViewHeight lerps from startViewHeight down to lockViewHeight as
     // altitude drops from worldHeight to lockAltitude. startViewHeight > worldHeight
     // guarantees a visible zoom-out at game start.
-    
+
     property real currentViewHeight: {
         if (landed) return viewport.lockViewHeight
         if (altitude <= viewport.lockAltitude) return viewport.lockViewHeight
@@ -144,24 +149,23 @@ Application {
         return viewport.lockViewHeight + (viewport.startViewHeight - viewport.lockViewHeight) * t
     }
 
-    property real zoomScale: app.height / currentViewHeight
     property real shipScreenFraction: 0.20 + Math.min(1.0, shipWorldY / world.floorY) * 0.20
-    
+
     property real cameraX:   shipWorldX
 
     // World → screen helpers. worldToScreenX handles carousel wrapping.
     function worldToScreenX(wx) {
-        var dx = wx - cameraX
+        var dx = wx - shipWorldX
         var ww = viewport.worldWidth
         dx = dx - Math.floor((dx + ww / 2) / ww) * ww
         return app.width / 2 + dx * zoomScale
     }
 
     function worldToScreenY(wy) {
-        return app.height * shipScreenFraction + (wy - shipWorldY) * zoomScale
+        return surfaceScreenY + (wy - world.floorY) * zoomScale
     }
 
-    // ── Canonical surface queries ─────────────────────────────────────────────
+    // ── Canonical surface queries
     // Binary search on the rasterized heightmap. wx is carousel-wrapped.
     function surfaceYatX(wx) {
         var pts = surface.points
@@ -196,7 +200,7 @@ Application {
         return Math.atan2(dy, dx) * 180 / Math.PI
     }
 
-    // ── World generation ──────────────────────────────────────────────────────
+    // ── World generation
 
     // Returns the minimum world-Y (highest surface) of rock polygon at wx.
     // Returns -1 if wx is outside the rock's X bounding box.
@@ -270,7 +274,7 @@ Application {
         var roughness   = Math.min(0.92, world.rockRoughness + (level - 1) * 0.06)
         var rockCnt     = world.rockCount + (level - 1) * 5
 
-        // ── Target pad ───────────────────────────────────────────────────────
+        // ── Target pad 
         // Level 1: dead center. Each level pad moves one pad-width further from
         // center, randomly left or right. Clamped to keep pad within world bounds.
         var centerX    = ww / 2 - padWidth / 2
@@ -282,7 +286,7 @@ Application {
         world.targetPadXEnd   = padX + padWidth
         world.pads = [{ wx: padX, wy: fy, width: padWidth, isTarget: true }]
         
-        // ── Rocks ─────────────────────────────────────────────────────────────
+        // ── Rocks
         // Placed after pad assignment. Each rock is an irregular polygon centered
         // at floorY. Vertices extend above (wy < floorY) and below (underground).
         // The floor fill Rectangle hides the underground portion visually.
@@ -290,7 +294,7 @@ Application {
         var attempts = 0
         var placed   = 0
         var padClearance = padWidth * 1.2 + baseR * 2
-        
+
         while (placed < rockCnt && attempts < rockCnt * 8) {
             attempts++
             var cx       = Math.random() * ww
@@ -332,20 +336,20 @@ Application {
             newRocks.push({ cx: cx, cy: cy, r: r, vertices: verts, minX: minX, maxX: maxX, minY: minY })
             placed++
         }
-        
+
         world.rocks = newRocks
 
-        // ── Canonical heightmap ───────────────────────────────────────────────
+        // ── Canonical heightmap
         rasterizeHeightmap()
     }
 
-    // ── Keep display on only while game is actively running ──────────────────
+    // ── Keep display on only while game is actively running
     // Explicitly excludes selectingLevel and gameOver so display can blank on
     // menus and the result screen — prevents battery drain on forgotten watches.
     property bool keepAwake: playing || landed || playerDying
     onKeepAwakeChanged: DisplayBlanking.preventBlanking = keepAwake
-    
-    // ── Accelerometer ─────────────────────────────────────────────────────────
+
+    // ── Accelerometer
     Accelerometer {
         id: accel
         active:   calibrating || playing
@@ -357,7 +361,7 @@ Application {
         }
     }
 
-    // ── Calibration countdown ─────────────────────────────────────────────────
+    // ── Calibration countdown
     Timer {
         id: calibrationTimer
         interval: 1000
@@ -378,7 +382,7 @@ Application {
         }
     }
 
-    // ── Physics tick — 60 fps ────────────────────────────────────────────────
+    // ── Physics tick — 60 fps
     Timer {
         id: gameTimer
         interval: 16
@@ -424,7 +428,7 @@ Application {
             shipWorldY = shipWorldY + vy * dt
             if (shipWorldY < 0) { shipWorldY = 0; if (vy < 0) vy = 0 }
 
-            // ── Surface contact ───────────────────────────────────────────────
+            // ── Surface contact
             if (surface.points.length > 1) {
                 var gearTipY = shipWorldY + world.landingGearOffset
                 var surfY    = surfaceYatX(shipWorldX)
@@ -459,7 +463,7 @@ Application {
         }
     }
 
-    // ── Elapsed timer ─────────────────────────────────────────────────────────
+    // ── Elapsed timer
     Timer {
         id: elapsedTimer
         interval: 100
@@ -467,7 +471,7 @@ Application {
         onTriggered: elapsedMs += 100
     }
 
-    // ── Landing: tilt ship to upright then show game over ─────────────────────
+    // ── Landing: tilt ship to upright then show game over
     SequentialAnimation {
         id: landingAnimation
         NumberAnimation { target: app; property: "shipAngle"; to: 0; duration: 500; easing.type: Easing.OutCubic }
@@ -475,7 +479,7 @@ Application {
         ScriptAction    { script: showComms() }
     }
 
-    // ── Crash: tilt ship 45° to broken side ───────────────────────────────────
+    // ── Crash: tilt ship 45° to broken side
     NumberAnimation {
         id: crashAnimation
         target: app; property: "shipAngle"
@@ -483,7 +487,7 @@ Application {
         duration: 300; easing.type: Easing.OutCubic
     }
 
-    // ── Death shader drive ────────────────────────────────────────────────────
+    // ── Death shader drive
     NumberAnimation {
         id: deathAnim
         target: app; property: "deathProgress"
@@ -491,7 +495,7 @@ Application {
         onStopped: { playerDying = false; showComms() }
     }
 
-    // ── Haptics ───────────────────────────────────────────────────────────────
+    // ── Haptics
     NonGraphicalFeedback { id: haptic; event: "press" }
 
     SequentialAnimation {
@@ -501,7 +505,7 @@ Application {
         NumberAnimation { target: app; property: "commsOpacity"; to: 0.0; duration: 400 }
         ScriptAction    { script: { showingComms = false; gameOver = true } }
     }
-    
+
     function showComms() {
         var arr
         if (landed) {
@@ -515,8 +519,8 @@ Application {
         commsOpacity   = 0.0
         commsSequence.start()
     }
-    
-    // ── Visual root ───────────────────────────────────────────────────────────
+
+    // ── Visual root
     Item {
         id: root
         anchors.fill: parent
@@ -524,7 +528,7 @@ Application {
         // Black space
         Rectangle { anchors.fill: parent; color: "#000000" }
 
-        // ── Starfield — world-space, scales with zoom ─────────────────────────
+        // ── Starfield — world-space, scales with zoom
         Repeater {
             model: 22
             delegate: Rectangle {
@@ -549,7 +553,7 @@ Application {
             color:  "#1A1A1A"
         }
 
-        // ── Rocks — one Shape per rock, each fully self-contained ─────────────
+        // ── Rocks — one Shape per rock, each fully self-contained
         // No world-spanning polyline = zero stray lines by construction.
         Repeater {
             model: world.rocks.length
@@ -585,7 +589,7 @@ Application {
             }
         }
 
-        // ── Target pad highlight ──────────────────────────────────────────────
+        // ── Target pad highlight
         // Only the top edge — the floor fill handles the body below.
         Shape {
             anchors.fill: parent
@@ -609,7 +613,7 @@ Application {
             }
         }
 
-        // ── Ship ──────────────────────────────────────────────────────────────
+        // ── Ship
         Item {
             id: shipItem
             width:  80 * zoomScale
@@ -678,14 +682,13 @@ Application {
                 Behavior on height { SmoothedAnimation { velocity: Dims.l(15) } }
             }          
         }
-        
-                    
+
         // Altitude readout
         Label {
                 anchors.horizontalCenter: shipItem.horizontalCenter
                 anchors.bottom:              shipItem.top
                 anchors.bottomMargin:        Dims.l(3)
-                text:            Math.round(altitude) + "m"
+                text:            Math.round(Math.max(0, world.floorY - shipWorldY)) + "m"
                 font.pixelSize:  Dims.l(5)
                 font.family:         "Noto Sans"
                 font.styleName:      "Condensed Light"
@@ -693,7 +696,7 @@ Application {
                 visible:         playing
         }
 
-        // ── Death shader ──────────────────────────────────────────────────────
+        // ── Death shader
         DeathShader {
             visible:       playerDying
             width:         root.width * 1.2
@@ -702,8 +705,8 @@ Application {
             deathProgress: app.deathProgress
             ringColor:     "#FF4400"
         }
-        
-        // ── Houston comms message ─────────────────────────────────────────
+
+        // ── Houston comms message
         Rectangle {
             anchors.fill: parent
             color:        "#CC000000"
@@ -724,7 +727,7 @@ Application {
                 width:               Dims.l(80)
                 clip: false
             }
-            
+
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
@@ -736,7 +739,7 @@ Application {
             }
         }
 
-        // ── HUD bars — stacked top center ─────────────────────────────────────
+        // ── HUD bars — stacked top center
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top:              parent.top
@@ -778,7 +781,7 @@ Application {
                 Rectangle { anchors.fill: parent; radius: height/2; color: "#3300FFFF" }
                 Rectangle {
                     anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
-                    width: Math.max(height, parent.width * Math.min(1.0, altitude / world.floorY))
+                    width: Math.max(height, parent.width * Math.min(1.0, Math.max(0, world.floorY - shipWorldY) / world.floorY))
                     radius: height / 2; color: "#00FFFF"
                     Behavior on width { SmoothedAnimation { velocity: Dims.l(40) } }
                 }
@@ -799,7 +802,7 @@ Application {
             visible:        playing
         }
 
-        // ── Calibration / level select overlay ────────────────────────────────
+        // ── Calibration / level select overlay
         Rectangle {
             anchors.fill: parent
             color:        "#CC000000"
@@ -819,7 +822,7 @@ Application {
                     font.pixelSize: Dims.l(11)
                     opacity:        0.9
                 }
-                
+
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: selectingLevel
@@ -840,7 +843,7 @@ Application {
                         }
                     }
                 }                
-                
+
                 ValueCycler {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible:      selectingLevel
@@ -854,7 +857,7 @@ Application {
                     currentValue: "Level " + currentLevel
                     onValueChanged: currentLevel = parseInt(value.replace("Level ", ""))
                 }
-                
+
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible:        selectingLevel && TouchdownStorage.bestTime(currentLevel) > 0
@@ -876,7 +879,7 @@ Application {
             opacity:        0.9
         }
 
-        // ── Game over overlay ─────────────────────────────────────────────
+        // ── Game over overlay
         Rectangle {
             anchors.fill: parent
             color:   "#CC000000"
@@ -1003,7 +1006,7 @@ Application {
         }
     }
 
-    // ── Game flow ─────────────────────────────────────────────────────────────
+    // ── Game flow
 
     function startLevel(level) {
         currentLevel  = level
