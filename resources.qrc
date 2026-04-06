@@ -3,6 +3,7 @@
         <file>main.qml</file>
         <file>DeathShader.qml</file>
         <file>CommsMessages.qml</file>
+        <file>ValueCycler.qml</file>
         <file>asteroid-touchdown-ship.svg</file>
         <file>asteroid-touchdown-ship-left-gear.svg</file>
         <file>asteroid-touchdown-ship-right-gear.svg</file>

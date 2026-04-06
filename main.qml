@@ -838,14 +838,21 @@ Application {
                     font.pixelSize: Dims.l(7)
                     opacity:        0.9
                 }
-
-                Label {
+                
+                ValueCycler {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible:        selectingLevel
-                    text:           "Level " + currentLevel
-                    font.pixelSize: Dims.l(9)
+                    visible:      selectingLevel
+                    width:        Dims.l(50)
+                    height:       Dims.l(14)
+                    valueArray: {
+                        var arr = []
+                        for (var i = 1; i <= TouchdownStorage.highestUnlockedLevel; i++) arr.push("Level " + i)
+                        return arr
+                    }
+                    currentValue: "Level " + currentLevel
+                    onValueChanged: currentLevel = parseInt(value.replace("Level ", ""))
                 }
-
+                
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible:        selectingLevel && TouchdownStorage.bestTime(currentLevel) > 0
@@ -854,46 +861,14 @@ Application {
                     opacity:        0.7
                 }
 
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Dims.l(3)
-                    visible: selectingLevel
-
-                    Rectangle {
-                        width: Dims.l(12); height: Dims.l(12); radius: height / 2
-                        color: currentLevel > 1 ? "#44FFFFFF" : "#22FFFFFF"
-                        Label {
-                            anchors.centerIn: parent; text: "−"
-                            font.pixelSize: Dims.l(7)
-                            opacity: currentLevel > 1 ? 1.0 : 0.3
-                        }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: if (currentLevel > 1) currentLevel--
-                        }
-                    }
-
-                    Rectangle {
-                        width: Dims.l(12); height: Dims.l(12); radius: height / 2
-                        color: currentLevel < TouchdownStorage.highestUnlockedLevel ? "#44FFFFFF" : "#22FFFFFF"
-                        Label {
-                            anchors.centerIn: parent; text: "+"
-                            font.pixelSize: Dims.l(7)
-                            opacity: currentLevel < TouchdownStorage.highestUnlockedLevel ? 1.0 : 0.3
-                        }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: if (currentLevel < TouchdownStorage.highestUnlockedLevel) currentLevel++
-                        }
-                    }
-                }
-
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: selectingLevel
-                    width: Dims.l(36); height: Dims.l(14); radius: height / 2
+                    width: Dims.l(54)
+                    height: Dims.l(21)
+                    radius: height / 2
                     color: "#55FFFFFF"
-                    Label { anchors.centerIn: parent; text: "HOLD STILL"; font.pixelSize: Dims.l(5.5) }
+                    Label { anchors.centerIn: parent; text: "HOLD STILL"; font.pixelSize: Dims.l(7) }
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
