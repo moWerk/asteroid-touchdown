@@ -99,6 +99,45 @@ Application {
     property bool   playerDying:        false
     property real   deathProgress:      0.0
     property string crashSide:          "left"
+    property string missionMessage: ""
+    property bool   showingComms:   false
+    property real   commsOpacity:   0.0
+    
+    readonly property var winMessages: [
+        "You stuck the\nlanding pilot.",
+        "Touchdown is\nconfirmed good work.",
+        "The eagle has\nlanded safely.",
+        "Nice soft landing\nthere pilot.",
+        "Fuel is zero\nbut success.",
+        "You actually pulled\nit off.",
+        "Tranquility base here\nwe made it.",
+        "Perfect controlled\ndescent pilot.",
+        "Soft landing achieved\ncongratulations pilot.",
+        "We have a\nsuccessful touchdown.",
+        "Houston we have\na touchdown.",
+        "Gear down locked\nand landed.",
+        "You made it\nlook easy.",
+        "Textbook approach\nand flare out.",
+        "One small step\nlanding achieved."
+    ]
+    
+    readonly property var loseMessages: [
+        "Impact confirmed\nyou are paste.",
+        "That was not\na landing.",
+        "You turned into\nasteroid paste.",
+        "Nice try but\nyou pancaked.",
+        "Too hot for\nsoft landing.",
+        "Asteroid wins again\nsorry pilot.",
+        "Your ship is\nnow confetti.",
+        "Rapid unscheduled disassembly\noccurred pilot.",
+        "Welcome to the\nnew crater.",
+        "Fuel wasted on\nthat crash.",
+        "Did you even\nbrake pilot.",
+        "That crater has\nyour name.",
+        "Mission control is\nweeping quietly.",
+        "Gravity won this\nround pilot.",
+        "Next time try\nslowing down."
+    ]
 
     // ── Physics state ─────────────────────────────────────────────────────────
     property real shipWorldX:  viewport.worldWidth / 2
@@ -335,6 +374,12 @@ Application {
         value: playing || landed || playerDying
     }
 
+    onGameOverChanged: {
+        if (!gameOver) return
+            var arr = landed ? winMessages : loseMessages
+            missionMessage = arr[Math.floor(Math.random() * arr.length)]
+    }
+    
     // ── Accelerometer ─────────────────────────────────────────────────────────
     Accelerometer {
         id: accel
@@ -425,16 +470,14 @@ Application {
                     var speedOk = contactVy <= physics.maxLandingSpeed
                     var angleOk = contactAngle <= physics.maxLandingAngleMax
                     if (speedOk && angleOk) {
-                        landed    = true
-                        gameOver  = true
+                        landed = true
                         TouchdownStorage.setBestTime(currentLevel, elapsedMs)
-                        if (shipWorldX >= world.targetPadXStart && shipWorldX <= world.targetPadXEnd) {
-                            TouchdownStorage.setHighestUnlockedLevel(currentLevel + 1)
+                        if (shipWorldX >= world.targetPadXStart - 20 && shipWorldX <= world.targetPadXEnd + 20) {
+                            TouchdownStorage.highestUnlockedLevel = currentLevel + 1
                         }
                         landingAnimation.start()
                     } else {
                         crashed       = true
-                        gameOver      = true
                         crashSide     = vx >= 0 ? "right" : "left"
                         playerDying   = true
                         deathProgress = 0.0
@@ -457,10 +500,11 @@ Application {
     }
 
     // ── Landing: tilt ship to upright then show game over ─────────────────────
-    NumberAnimation {
+    SequentialAnimation {
         id: landingAnimation
-        target: app; property: "shipAngle"
-        to: 0; duration: 500; easing.type: Easing.OutCubic
+        NumberAnimation { target: app; property: "shipAngle"; to: 0; duration: 500; easing.type: Easing.OutCubic }
+        PauseAnimation  { duration: 1 }
+        ScriptAction    { script: showComms() }
     }
 
     // ── Crash: tilt ship 45° to broken side ───────────────────────────────────
@@ -476,12 +520,28 @@ Application {
         id: deathAnim
         target: app; property: "deathProgress"
         from: 0; to: 1; duration: 800; easing.type: Easing.InCubic
-        onStopped: { playerDying = false; gameOver = true }
+        onStopped: { playerDying = false; showComms() }
     }
 
     // ── Haptics ───────────────────────────────────────────────────────────────
     NonGraphicalFeedback { id: haptic; event: "press" }
 
+    SequentialAnimation {
+        id: commsSequence
+        NumberAnimation { target: app; property: "commsOpacity"; to: 1.0; duration: 400 }
+        PauseAnimation  { duration: 2000 }
+        NumberAnimation { target: app; property: "commsOpacity"; to: 0.0; duration: 400 }
+        ScriptAction    { script: { showingComms = false; gameOver = true } }
+    }
+    
+    function showComms() {
+        var arr = landed ? winMessages : loseMessages
+        missionMessage = arr[Math.floor(Math.random() * arr.length)]
+        showingComms   = true
+        commsOpacity   = 0.0
+        commsSequence.start()
+    }
+    
     // ── Visual root ───────────────────────────────────────────────────────────
     Item {
         id: root
@@ -653,6 +713,36 @@ Application {
             anchors.centerIn: root
             deathProgress: app.deathProgress
             ringColor:     "#FF4400"
+        }
+        
+        // ── Houston comms message ─────────────────────────────────────────
+        Rectangle {
+            anchors.fill: parent
+            color:        "#CC000000"
+            visible:      showingComms
+            opacity:      commsOpacity
+            
+            Label {
+                anchors.centerIn:    parent
+                text:                missionMessage
+                font.pixelSize:      Dims.l(16)
+                font.family:         "Noto Sans"
+                font.styleName:      "SemiCondensed SemiBold"
+                horizontalAlignment: Text.AlignHCenter
+                color:               landed ? "#AAFFAA" : "#FF6644"
+                wrapMode:            Text.WordWrap
+                width:               Dims.l(70)
+            }
+            
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    commsSequence.stop()
+                    showingComms  = false
+                    commsOpacity  = 0.0
+                    gameOver      = true
+                }
+            }
         }
 
         // ── HUD bars — stacked top center ─────────────────────────────────────
@@ -839,7 +929,7 @@ Application {
             opacity:        0.9
         }
 
-        // ── Game over overlay ─────────────────────────────────────────────────
+        // ── Game over overlay ─────────────────────────────────────────────
         Rectangle {
             anchors.fill: parent
             color:   "#CC000000"
@@ -848,63 +938,119 @@ Application {
             Behavior on opacity { NumberAnimation { duration: 400 } }
 
             Column {
-                anchors.centerIn: parent
-                spacing: Dims.l(3)
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: Dims.l(12)
+                spacing: Dims.l(2)
 
+                // Result header
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text:           crashed ? "CRASHED" : "TOUCHDOWN!"
-                    font.pixelSize: Dims.l(8)
+                    font.pixelSize: Dims.l(7)
                     color:          crashed ? "#FF4400" : "#AAFFAA"
                 }
 
+                // Time this run
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible:        landed
                     text:           formatTime(elapsedMs)
-                    font.pixelSize: Dims.l(10)
+                    font.pixelSize: Dims.l(8)
+                    color:          "#AAFFAA"
                 }
 
+                // Pad bonus hint
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible:        landed && TouchdownStorage.bestTime(currentLevel) > 0
-                    text:           "Best: " + formatTime(TouchdownStorage.bestTime(currentLevel))
-                    font.pixelSize: Dims.l(5)
-                    opacity:        0.7
+                    visible: landed && !(shipWorldX >= world.targetPadXStart &&
+                                         shipWorldX <= world.targetPadXEnd)
+                    text:           "Land on pad to advance!"
+                    font.pixelSize: Dims.l(4)
+                    opacity:        0.6
                 }
 
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible:        landed && TouchdownStorage.highestUnlockedLevel > currentLevel
                     text:           "Level " + (currentLevel + 1) + " unlocked!"
-                    font.pixelSize: Dims.l(5)
+                    font.pixelSize: Dims.l(4.5)
                     color:          "#AAFFAA"
                 }
+            }
 
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: landed && !(shipWorldX >= world.targetPadXStart &&
-                                         shipWorldX <= world.targetPadXEnd)
-                    text:           "Land on the pad to advance!"
-                    font.pixelSize: Dims.l(4.5)
-                    opacity:        0.7
+            // Per-level scores list
+            ListView {
+                id: scoresList
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: Dims.l(54)
+                anchors.bottom: buttonsRow.top
+                anchors.bottomMargin: Dims.l(2)
+                width: Dims.l(60)
+                clip: true
+                model: TouchdownStorage.highestUnlockedLevel
+
+                delegate: Item {
+                    width: scoresList.width
+                    height: Dims.l(8)
+                    property int lvl: index + 1
+                    property int best: TouchdownStorage.bestTime(lvl)
+
+                    Label {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text:           "L" + lvl
+                        font.pixelSize: Dims.l(4.5)
+                        opacity:        lvl === currentLevel ? 1.0 : 0.6
+                        color:          lvl === currentLevel ? "#AAFFAA" : "#FFFFFF"
+                    }
+                    Label {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text:           best > 0 ? formatTime(best) : "—"
+                        font.pixelSize: Dims.l(4.5)
+                        opacity:        lvl === currentLevel ? 1.0 : 0.6
+                        color:          lvl === currentLevel ? "#AAFFAA" : "#FFFFFF"
+                    }
                 }
+            }
 
+            // Buttons
+            Row {
+                id: buttonsRow
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: Dims.l(8)
+                spacing: Dims.l(3)
+
+                // Retry same level
                 Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: Dims.l(44); height: Dims.l(13); radius: height / 2
+                    width: Dims.l(38); height: Dims.l(12); radius: height / 2
                     color: "#55FFFFFF"
-                    Label { anchors.centerIn: parent; text: "TRY LEVEL " + currentLevel; font.pixelSize: Dims.l(5) }
+                    Label {
+                        anchors.centerIn: parent
+                        text:           "RETRY L" + currentLevel
+                        font.pixelSize: Dims.l(4)
+                    }
                     MouseArea { anchors.fill: parent; onClicked: startLevel(currentLevel) }
                 }
 
+                // Jump to highest unlocked (only if higher than current)
                 Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: currentLevel > 1
-                    width: Dims.l(44); height: Dims.l(13); radius: height / 2
+                    visible: TouchdownStorage.highestUnlockedLevel > currentLevel
+                    width: Dims.l(38); height: Dims.l(12); radius: height / 2
                     color: "#33FFFFFF"
-                    Label { anchors.centerIn: parent; text: "LEVEL 1"; font.pixelSize: Dims.l(5); opacity: 0.8 }
-                    MouseArea { anchors.fill: parent; onClicked: startLevel(1) }
+                    Label {
+                        anchors.centerIn: parent
+                        text:           "NEXT L" + TouchdownStorage.highestUnlockedLevel
+                        font.pixelSize: Dims.l(4)
+                        opacity:        0.9
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: startLevel(TouchdownStorage.highestUnlockedLevel)
+                    }
                 }
             }
         }
@@ -925,6 +1071,10 @@ Application {
         gameTimer.stop(); gameTimer.lastMs = 0; elapsedTimer.stop()
         generateWorld(level)
         selectingLevel   = false; calibrating = true; calibrationCount = 0
+        missionMessage  = ""
+        showingComms    = false
+        commsOpacity    = 0.0
+        commsSequence.stop()
         smoothedX = 0; smoothedY = 0
         calibrationTimer.start()
     }
