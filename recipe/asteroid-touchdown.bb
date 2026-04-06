@@ -11,7 +11,7 @@ S = "${WORKDIR}/git"
 
 inherit cmake_qt5 pkgconfig
 
-DEPENDS += "qml-asteroid asteroid-generate-desktop-native qttools-native qtdeclarative-native"
+DEPENDS += "qml-asteroid qttools-native qtdeclarative-native"
 RDEPENDS:${PN} += ""
 
 FILES:${PN} += "/usr/share/translations/"

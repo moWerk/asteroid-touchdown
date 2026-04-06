@@ -293,55 +293,44 @@ Application {
         
         while (placed < rockCnt && attempts < rockCnt * 8) {
             attempts++
-            var cx = Math.random() * ww
+            var cx       = Math.random() * ww
             var rockRoll = placed % 10
-            var r = rockRoll === 9 ? baseR * (8 + Math.random() * 4)
-            : rockRoll === 4 ? baseR * (2 + Math.random() * 2)
-            : baseR * (0.5 + Math.random() * 1.0)
-            
-            // Exclude pad area
-            var distToPad = Math.min(
-                Math.abs(cx - padX),
-                                     Math.abs(cx - (padX + padWidth)))
-            if (cx > padX - r && cx < padX + padWidth + r) continue
-                
-                // Minimum spacing between existing rocks
-                var tooClose = false
-                for (var ri = 0; ri < newRocks.length; ri++) {
-                if (newRocks[ri].r < baseR * 2 && Math.abs(newRocks[ri].cx - cx) < r + newRocks[ri].r * 0.7) {
-                        tooClose = true; break
-                    }
-                }
-                if (tooClose) continue
-                    
-                    var cy    = fy
-                    var rockRoughness = rockRoll === 9 ? 0.95
-                                      : rockRoll === 4 ? 0.75
-                                      : roughness
-                    var nVert = rockRoll === 9 ? 7 + Math.floor(Math.random() * 4)
-                              : 5 + Math.floor(Math.random() * 4)
-                    var verts = []
+            var r = rockRoll === 9 ? baseR * (8 + Math.random() * 4) : rockRoll === 4 ? baseR * (2 + Math.random() * 2) : baseR * (0.5 + Math.random() * 1.0)
 
-                    for (var j = 0; j < nVert; j++) {
-                        var angle   = (j / nVert) * 2 * Math.PI - Math.PI / 2
-                        var perturb = 1.0 - rockRoughness * 0.5 + Math.random() * rockRoughness
-                        var rv      = r * perturb
-                        verts.push({ x: cx + Math.cos(angle) * rv,
-                            y: cy + Math.sin(angle) * rv * 0.7 })
-                    }
-                    
-                    var minX = verts[0].x; var maxX = verts[0].x
-                    var minY = verts[0].y
-                    for (var k = 1; k < verts.length; k++) {
-                        if (verts[k].x < minX) minX = verts[k].x
-                            if (verts[k].x > maxX) maxX = verts[k].x
-                                if (verts[k].y < minY) minY = verts[k].y
-                    }
-                    
-                    newRocks.push({ cx: cx, cy: cy, r: r,
-                        vertices: verts,
-                        minX: minX, maxX: maxX, minY: minY })
-                    placed++
+            if (cx > padX - r && cx < padX + padWidth + r) continue
+
+            var tooClose = false
+            for (var ri = 0; ri < newRocks.length; ri++) {
+                if (newRocks[ri].r < baseR * 2 && Math.abs(newRocks[ri].cx - cx) < r + newRocks[ri].r * 0.7) {
+                    tooClose = true
+                    break
+                }
+            }
+            if (tooClose) continue
+
+            var rockRoughness = rockRoll === 9 ? 0.95 : rockRoll === 4 ? 0.75 : roughness
+            var nVert         = rockRoll === 9 ? 7 + Math.floor(Math.random() * 4) : 5 + Math.floor(Math.random() * 4)
+            var cy            = fy
+            var verts         = []
+
+            for (var j = 0; j < nVert; j++) {
+                var angle   = (j / nVert) * 2 * Math.PI - Math.PI / 2
+                var perturb = 1.0 - rockRoughness * 0.5 + Math.random() * rockRoughness
+                var rv      = r * perturb
+                verts.push({ x: cx + Math.cos(angle) * rv, y: cy + Math.sin(angle) * rv * 0.7 })
+            }
+
+            var minX = verts[0].x
+            var maxX = verts[0].x
+            var minY = verts[0].y
+            for (var k = 1; k < verts.length; k++) {
+                if (verts[k].x < minX) minX = verts[k].x
+                if (verts[k].x > maxX) maxX = verts[k].x
+                if (verts[k].y < minY) minY = verts[k].y
+            }
+
+            newRocks.push({ cx: cx, cy: cy, r: r, vertices: verts, minX: minX, maxX: maxX, minY: minY })
+            placed++
         }
         
         world.rocks = newRocks
@@ -350,18 +339,11 @@ Application {
         rasterizeHeightmap()
     }
 
-    // ── Keep display on while playing ─────────────────────────────────────────
-    Binding {
-        target:   DisplayBlanking
-        property: "preventBlanking"
-        value: playing || landed || playerDying
-    }
-
-    onGameOverChanged: {
-        if (!gameOver) return
-            var arr = landed ? winMessages : loseMessages
-            missionMessage = arr[Math.floor(Math.random() * arr.length)]
-    }
+    // ── Keep display on only while game is actively running ──────────────────
+    // Explicitly excludes selectingLevel and gameOver so display can blank on
+    // menus and the result screen — prevents battery drain on forgotten watches.
+    property bool keepAwake: playing || landed || playerDying
+    onKeepAwakeChanged: DisplayBlanking.preventBlanking = keepAwake
     
     // ── Accelerometer ─────────────────────────────────────────────────────────
     Accelerometer {
@@ -817,24 +799,6 @@ Application {
             visible:        playing
         }
 
-        // Timer — Center right
-        Label {
-            anchors.bottom: levelHud.top
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottomMargin: Dims.l(1)
-            text: {
-                var s  = Math.floor(elapsedMs / 1000)
-                var m  = Math.floor(s / 60)
-                var ds = Math.floor((elapsedMs % 1000) / 100)
-                return (m > 0 ? m + ":" : "") + (s % 60 < 10 && m > 0 ? "0" : "") + (s % 60) + "." + ds
-            }
-            font.pixelSize: Dims.l(7)
-            font.family:         "Teko"
-            font.styleName:      "Bold"
-            opacity:        0.8
-            visible:        playing
-        }
-
         // ── Calibration / level select overlay ────────────────────────────────
         Rectangle {
             anchors.fill: parent
@@ -972,7 +936,6 @@ Application {
                 anchors.bottom: buttonsColumn.top
                 anchors.bottomMargin: Dims.l(2)
                 width: Dims.l(55)
-                //clip: true
                 model: TouchdownStorage.highestUnlockedLevel
 
                 delegate: Item {
@@ -1071,7 +1034,7 @@ Application {
     }
 
     Component.onCompleted: {
-        DisplayBlanking.preventBlanking = false
+        DisplayBlanking.preventBlanking = keepAwake
         currentLevel = TouchdownStorage.highestUnlockedLevel
         selectingLevel = true
     }
