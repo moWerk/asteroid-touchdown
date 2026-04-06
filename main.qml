@@ -31,17 +31,19 @@ Application {
     QtObject {
         id: physics
         readonly property real gravity:               30.0
-        readonly property real lowerThrustForce:     100.0
-        readonly property real upperThrustForce:      30.0
+        readonly property real lowerThrustForce:      80.0
+        readonly property real upperThrustForce:      20.0
         readonly property real lowerFuelDrainRate:    0.07
         readonly property real upperFuelDrainRate:    0.007
-        readonly property real lowerThrustFuelCutoff: 0.01
+        readonly property real lowerThrustFuelCutoff: 0.05
         readonly property real tiltSensitivity:       12.0
         readonly property real accelSmoothing:        0.75
         readonly property real thrustDeadZone:        0.08
         readonly property real maxLandingSpeed:       220.0
         readonly property real maxLandingAngleMin:    5.0
         readonly property real maxLandingAngleMax:    22.0
+        readonly property real upperLateralFraction:  0.02
+        readonly property real tiltLateralForce:      4.0
     }
 
     // ── Viewport tuning ───────────────────────────────────────────────────────
@@ -148,6 +150,7 @@ Application {
     property real fuel:        1.0
     property real thrustLower: 0.0
     property real thrustUpper: 0.0
+    property real lateralUpper: 0.0
 
     // ── Accelerometer baseline ────────────────────────────────────────────────
     property real baselineX: 0.0
@@ -300,12 +303,17 @@ Application {
         var rockCnt     = world.rockCount + (level - 1) * 5
 
         // ── Target pad ───────────────────────────────────────────────────────
-        var padMargin = ww * 0.15
-        var padX      = padMargin + Math.random() * (ww - padMargin * 2 - padWidth)
+        // Level 1: dead center. Each level pad moves one pad-width further from
+        // center, randomly left or right. Clamped to keep pad within world bounds.
+        var centerX    = ww / 2 - padWidth / 2
+        var direction  = (Math.random() < 0.5 ? -1 : 1)
+        var offsetSteps = level - 1
+        var padX       = centerX + direction * offsetSteps * padWidth * 1.5
+        padX = Math.max(ww * 0.05, Math.min(ww * 0.95 - padWidth, padX))
         world.targetPadXStart = padX
         world.targetPadXEnd   = padX + padWidth
         world.pads = [{ wx: padX, wy: fy, width: padWidth, isTarget: true }]
-
+        
         // ── Rocks ─────────────────────────────────────────────────────────────
         // Placed after pad assignment. Each rock is an irregular polygon centered
         // at floorY. Vertices extend above (wy < floorY) and below (underground).
@@ -318,7 +326,10 @@ Application {
         while (placed < rockCnt && attempts < rockCnt * 8) {
             attempts++
             var cx = Math.random() * ww
-            var r  = baseR * (0.5 + Math.random() * 1.0)
+            var rockRoll = placed % 10
+            var r = rockRoll === 9 ? baseR * (8 + Math.random() * 4)
+            : rockRoll === 4 ? baseR * (2 + Math.random() * 2)
+            : baseR * (0.5 + Math.random() * 1.0)
             
             // Exclude pad area
             var distToPad = Math.min(
@@ -444,7 +455,10 @@ Application {
             var angleRad   = shipAngle * Math.PI / 180.0
             var lowerForce = thrustLower * physics.lowerThrustForce
             var upperForce = thrustUpper * physics.upperThrustForce
-            vx = vx + (lowerForce * Math.sin(angleRad)) * dt
+            var lateralUpper = thrustUpper * physics.lowerThrustForce * physics.upperLateralFraction * Math.sin(angleRad)
+            app.lateralUpper = Math.abs(lateralUpper) > 0.001 ? Math.sign(lateralUpper) : 0
+            var tiltLateral = Math.sin(angleRad) * physics.tiltLateralForce
+            vx = vx + (lowerForce * Math.sin(angleRad) + lateralUpper + tiltLateral) * dt
             vy = vy + (physics.gravity - lowerForce * Math.cos(angleRad) + upperForce) * dt
 
             // Carousel X wrap
@@ -528,7 +542,7 @@ Application {
 
     SequentialAnimation {
         id: commsSequence
-        NumberAnimation { target: app; property: "commsOpacity"; to: 1.0; duration: 400 }
+        NumberAnimation { target: app; property: "commsOpacity"; to: 1.0; duration: 200 }
         PauseAnimation  { duration: 2000 }
         NumberAnimation { target: app; property: "commsOpacity"; to: 0.0; duration: 400 }
         ScriptAction    { script: { showingComms = false; gameOver = true } }
@@ -683,7 +697,7 @@ Application {
                 mirror: true
                 rotation: 135
                 transformOrigin: Item.Top
-                opacity: thrustUpper * (Math.abs(shipAngle) < 5 ? 1.0 : shipAngle < 0 ? 1.0 : 0.4)
+                opacity: Math.max(thrustUpper * (Math.abs(shipAngle) < 5 ? 1.0 : shipAngle > 0 ? 1.0 : 0.4), Math.min(1.0, Math.max(0.0, shipAngle / 30.0)))
                 Behavior on height { SmoothedAnimation { velocity: shipItem.height * 3 } }
             }
 
@@ -700,7 +714,7 @@ Application {
                 smooth: true
                 rotation: -135
                 transformOrigin: Item.Top
-                opacity: thrustUpper * (Math.abs(shipAngle) < 5 ? 1.0 : shipAngle > 0 ? 1.0 : 0.4)
+                opacity: Math.max(thrustUpper * (Math.abs(shipAngle) < 5 ? 1.0 : shipAngle < 0 ? 1.0 : 0.4), Math.min(1.0, Math.max(0.0, -shipAngle / 30.0)))
                 Behavior on height { SmoothedAnimation { velocity: Dims.l(15) } }
             }
         }
@@ -725,9 +739,11 @@ Application {
             Label {
                 anchors.centerIn:    parent
                 text:                missionMessage
-                font.pixelSize:      Dims.l(16)
+                font.pixelSize:      Dims.l(15)
                 font.family:         "Noto Sans"
                 font.styleName:      "SemiCondensed SemiBold"
+                lineHeight:          0.9
+                lineHeightMode:      Text.ProportionalHeight
                 horizontalAlignment: Text.AlignHCenter
                 color:               landed ? "#AAFFAA" : "#FF6644"
                 wrapMode:            Text.WordWrap
@@ -972,7 +988,7 @@ Application {
 
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible:        landed && TouchdownStorage.highestUnlockedLevel > currentLevel
+                    visible: landed && TouchdownStorage.highestUnlockedLevel === currentLevel + 1
                     text:           "Level " + (currentLevel + 1) + " unlocked!"
                     font.pixelSize: Dims.l(4.5)
                     color:          "#AAFFAA"
