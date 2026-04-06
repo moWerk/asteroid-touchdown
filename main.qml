@@ -105,41 +105,7 @@ Application {
     property bool   showingComms:   false
     property real   commsOpacity:   0.0
     
-    readonly property var winMessages: [
-        "You stuck the\nlanding pilot.",
-        "Touchdown is\nconfirmed good work.",
-        "The eagle has\nlanded safely.",
-        "Nice soft landing\nthere pilot.",
-        "Fuel is zero\nbut success.",
-        "You actually pulled\nit off.",
-        "Tranquility base here\nwe made it.",
-        "Perfect controlled\ndescent pilot.",
-        "Soft landing achieved\ncongratulations pilot.",
-        "We have a\nsuccessful touchdown.",
-        "Houston we have\na touchdown.",
-        "Gear down locked\nand landed.",
-        "You made it\nlook easy.",
-        "Textbook approach\nand flare out.",
-        "One small step\nlanding achieved."
-    ]
-    
-    readonly property var loseMessages: [
-        "Impact confirmed\nyou are paste.",
-        "That was not\na landing.",
-        "You turned into\nasteroid paste.",
-        "Nice try but\nyou pancaked.",
-        "Too hot for\nsoft landing.",
-        "Asteroid wins again\nsorry pilot.",
-        "Your ship is\nnow confetti.",
-        "Rapid unscheduled disassembly\noccurred pilot.",
-        "Welcome to the\nnew crater.",
-        "Fuel wasted on\nthat crash.",
-        "Did you even\nbrake pilot.",
-        "That crater has\nyour name.",
-        "Mission control is\nweeping quietly.",
-        "Gravity won this\nround pilot.",
-        "Next time try\nslowing down."
-    ]
+    CommsMessages { id: comms }
 
     // ── Physics state ─────────────────────────────────────────────────────────
     property real shipWorldX:  viewport.worldWidth / 2
@@ -549,7 +515,13 @@ Application {
     }
     
     function showComms() {
-        var arr = landed ? winMessages : loseMessages
+        var arr
+        if (landed) {
+            var onPad = (shipWorldX >= world.targetPadXStart - 20 && shipWorldX <= world.targetPadXEnd + 20)
+            arr = onPad ? comms.pad : comms.win
+        } else {
+            arr = comms.lose
+        }
         missionMessage = arr[Math.floor(Math.random() * arr.length)]
         showingComms   = true
         commsOpacity   = 0.0
@@ -739,13 +711,13 @@ Application {
             Label {
                 anchors.centerIn:    parent
                 text:                missionMessage
-                font.pixelSize:      Dims.l(15)
+                font.pixelSize:      Dims.l(14)
                 font.family:         "Noto Sans"
                 font.styleName:      "SemiCondensed SemiBold"
-                lineHeight:          0.9
+                lineHeight:          0.8
                 lineHeightMode:      Text.ProportionalHeight
                 horizontalAlignment: Text.AlignHCenter
-                color:               landed ? "#AAFFAA" : "#FF6644"
+                color: landed ? (shipWorldX >= world.targetPadXStart - 20 && shipWorldX <= world.targetPadXEnd + 20 ? "#DDFFB830" : "#DDAAFFAA") : "#DDFF6644"
                 wrapMode:            Text.WordWrap
                 width:               Dims.l(70)
             }
