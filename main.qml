@@ -84,13 +84,6 @@ Application {
         property real targetPadXEnd:   0
     }
 
-    // ── Surface (canonical collision heightmap) 
-    QtObject {
-        id: surface
-        property int sampleCount: 220   // heightmap resolution across worldWidth
-        property var points:      []    // [{wx, wy}] sorted by wx
-    }
-
     // ── Game state
     property bool   calibrating:        false
     property int    calibrationSeconds: 3
@@ -165,41 +158,6 @@ Application {
         return surfaceScreenY + (wy - world.floorY) * zoomScale
     }
 
-    // ── Canonical surface queries
-    // Binary search on the rasterized heightmap. wx is carousel-wrapped.
-    function surfaceYatX(wx) {
-        var pts = surface.points
-        if (pts.length < 2) return viewport.worldHeight
-        var ww = viewport.worldWidth
-        wx = wx - Math.floor(wx / ww) * ww
-        var lo = 0; var hi = pts.length - 1
-        while (lo < hi - 1) {
-            var mid = Math.floor((lo + hi) / 2)
-            if (pts[mid].wx <= wx) lo = mid; else hi = mid
-        }
-        var x0 = pts[lo].wx; var y0 = pts[lo].wy
-        var x1 = pts[hi].wx; var y1 = pts[hi].wy
-        if (x1 === x0) return y0
-        return y0 + (wx - x0) / (x1 - x0) * (y1 - y0)
-    }
-
-    // Local surface slope in degrees at wx. Positive = rising left-to-right.
-    function surfaceSlopeAtX(wx) {
-        var pts = surface.points
-        if (pts.length < 3) return 0
-        var ww = viewport.worldWidth
-        wx = wx - Math.floor(wx / ww) * ww
-        var lo = 0; var hi = pts.length - 1
-        while (lo < hi - 1) {
-            var mid = Math.floor((lo + hi) / 2)
-            if (pts[mid].wx <= wx) lo = mid; else hi = mid
-        }
-        var dx = pts[hi].wx - pts[lo].wx
-        var dy = pts[hi].wy - pts[lo].wy
-        if (Math.abs(dx) < 0.001) return 90
-        return Math.atan2(dy, dx) * 180 / Math.PI
-    }
-
     // ── World generation
 
     // Returns the minimum world-Y (highest surface) of rock polygon at wx.
@@ -222,44 +180,6 @@ Application {
             }
         }
         return found ? minY : -1
-    }
-
-    // Sample the merged top of all rocks and pads at regular intervals.
-    // Stores result into surface.points — the single canonical collision surface.
-    function rasterizeHeightmap() {
-        var pts = []
-        var n   = surface.sampleCount
-        var ww  = viewport.worldWidth
-        var dx  = ww / n
-        var fy  = world.floorY
-
-        for (var i = 0; i <= n; i++) {
-            var wx = i * dx
-            var wy = fy   // default to floor level
-
-            // Pads override floor locally (they sit at the same floorY here,
-            // but future variants could elevate them)
-            for (var p = 0; p < world.pads.length; p++) {
-                var pad = world.pads[p]
-                if (wx >= pad.wx && wx <= pad.wx + pad.width)
-                    if (pad.wy < wy) wy = pad.wy
-            }
-
-            // Rock tops override — take highest point (min wy) at this X
-            for (var r = 0; r < world.rocks.length; r++) {
-                var top = rockTopAtX(world.rocks[r], wx)
-                if (top >= 0 && top < wy) wy = top
-            }
-
-            pts.push({ wx: wx, wy: wy })
-        }
-
-        // Force carousel seam match — first and last samples must share Y
-        var seamY = (pts[0].wy + pts[n].wy) * 0.5
-        pts[0].wy = seamY
-        pts[n].wy = seamY
-
-        surface.points = pts
     }
 
     // Build rocks and pads for the given level, then rasterize the heightmap.
@@ -338,9 +258,6 @@ Application {
         }
 
         world.rocks = newRocks
-
-        // ── Canonical heightmap
-        rasterizeHeightmap()
     }
 
     // ── Keep display on only while game is actively running
@@ -429,9 +346,13 @@ Application {
             if (shipWorldY < 0) { shipWorldY = 0; if (vy < 0) vy = 0 }
 
             // ── Surface contact
-            if (surface.points.length > 1) {
+            if (world.rocks.length > 0) {
                 var gearTipY = shipWorldY + world.landingGearOffset
-                var surfY    = surfaceYatX(shipWorldX)
+                var surfY = world.floorY
+                for (var ri = 0; ri < world.rocks.length; ri++) {
+                    var top = rockTopAtX(world.rocks[ri], shipWorldX)
+                    if (top >= 0 && top < surfY) surfY = top
+                }
                 if (gearTipY >= surfY) {
                     shipWorldY = surfY - world.landingGearOffset
                     var contactVy    = vy
@@ -593,7 +514,7 @@ Application {
         // Only the top edge — the floor fill handles the body below.
         Shape {
             anchors.fill: parent
-            visible: surface.points.length > 1
+            visible: world.pads.length > 0
             ShapePath {
                 fillColor:   "transparent"
                 strokeColor: "#FFFFA0"
@@ -601,7 +522,7 @@ Application {
                 capStyle:    ShapePath.RoundCap
                 PathPolyline {
                     path: {
-                        if (surface.points.length < 2) return []
+                        if (world.pads.length === 0) return []
                         var sx = worldToScreenX(world.targetPadXStart)
                         var ex = worldToScreenX(world.targetPadXEnd)
                         // Cull when pad is entirely off-screen
@@ -747,16 +668,46 @@ Application {
             spacing: Dims.l(1)
             visible: playing
 
-            // Thrust — yellow, animated live
+            // Thrust — lower engine fills right of pivot, upper fills left.
+            // Pivot position reflects the force ratio so each side is to scale.
             Item {
-                width: Dims.l(28); height: Dims.l(2)
+                id: thrustBar
+                width: Dims.l(28)
+                height: Dims.l(2)
                 anchors.horizontalCenter: parent.horizontalCenter
-                Rectangle { anchors.fill: parent; radius: height/2; color: "#33FFFFA0" }
+                readonly property real pivotX: width * physics.upperThrustForce / (physics.lowerThrustForce + physics.upperThrustForce)
+
+                Rectangle { anchors.fill: parent; radius: height / 2; color: "#33FFFFA0" }
+
+                // Upper thrust — grows leftward from pivot
                 Rectangle {
-                    anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
-                    width: Math.max(height, parent.width * thrustLower)
-                    radius: height / 2; color: "#FFFFA0"
+                    x: thrustBar.pivotX - width
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: Math.max(parent.height, thrustBar.pivotX * thrustUpper)
+                    radius: height / 2
+                    color: "#88CCFFFF"
+                    Behavior on width { SmoothedAnimation { velocity: Dims.l(60) } }
+                }
+
+                // Lower thrust — grows rightward from pivot
+                Rectangle {
+                    x: thrustBar.pivotX
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: Math.max(parent.height, (thrustBar.width - thrustBar.pivotX) * thrustLower)
+                    radius: height / 2
+                    color: "#FFFFA0"
                     Behavior on width { SmoothedAnimation { velocity: Dims.l(120) } }
+                }
+
+                // Pivot marker
+                Rectangle {
+                    x: thrustBar.pivotX - width / 2
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 2
+                    color: "#66FFFFA0"
                 }
             }
 
