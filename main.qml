@@ -784,95 +784,22 @@ Application {
             maxLandingAngleMax: physics.maxLandingAngleMax
         }
 
-        // Level — Center bottom
-        Label {
-            id: levelHud
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom:        parent.bottom
-            anchors.bottomMargin:  Dims.l(2)
-            text:           "L" + currentLevel
-            font.family:         "Xolonium"
-            font.styleName:      "Bold"
-            font.pixelSize: Dims.l(8)
-            opacity:        0.8
-            visible:        playing
-        }
-
-        // ── Calibration / level select overlay
-        Rectangle {
+        StartOverlay {
             anchors.fill: parent
-            color:        "#CC000000"
-            visible:      calibrating || selectingLevel
-
-            Column {
-                anchors.centerIn: parent
-                spacing: Dims.l(7)
-
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible:      selectingLevel
-
-                    text:           "TOUCHDOWN"
-                    font.family:         "Barlow"
-                    font.styleName:      "Medium"                    
-                    font.pixelSize: Dims.l(11)
-                    opacity:        0.9
-                }
-
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: selectingLevel
-                    width: Dims.l(64)
-                    height: Dims.l(20)
-                    radius: height / 2
-                    color: "#55FFFFFF"
-                    Label { anchors.centerIn: parent; text: "ENTER ORBIT"; font.pixelSize: Dims.l(8) }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            generateWorld(currentLevel)
-                            selectingLevel   = false
-                            calibrating      = true
-                            calibrationCount = 0
-                            smoothedX = 0; smoothedY = 0
-                            calibrationTimer.start()
-                        }
-                    }
-                }                
-
-                ValueCycler {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible:      selectingLevel
-                    width:        parent.width
-                    height:       Dims.l(14)
-                    valueArray: {
-                        var arr = []
-                        for (var i = 1; i <= TouchdownStorage.highestUnlockedLevel; i++) arr.push("Level " + i)
-                        return arr
-                    }
-                    currentValue: "Level " + currentLevel
-                    onValueChanged: currentLevel = parseInt(value.replace("Level ", ""))
-                }
-
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible:        selectingLevel && TouchdownStorage.bestTime(currentLevel) > 0
-                    text:           "Best: " + formatTime(TouchdownStorage.bestTime(currentLevel))
-                    font.pixelSize: Dims.l(6)
-                    opacity:        0.7
-                }
+            selectingLevel: app.selectingLevel
+            calibrating: app.calibrating
+            currentLevel: app.currentLevel
+            calibrationSeconds: app.calibrationSeconds
+            calibrationCount: app.calibrationCount
+            onLaunchRequested: {
+                generateWorld(level)
+                app.selectingLevel = false
+                app.calibrating = true
+                app.calibrationCount = 0
+                smoothedX = 0; smoothedY = 0
+                calibrationTimer.start()
             }
-        }
-
-        // Calibration countdown number
-        Label {
-            anchors.centerIn: parent
-            visible:        calibrating
-            text:           calibrationSeconds - calibrationCount
-            font.pixelSize: Dims.l(22)
-            font.family:         "Xolonium"
-            font.styleName:      "Bold"
-            opacity:        0.9
+            onLevelSelected: app.currentLevel = level
         }
 
         GameOverOverlay {

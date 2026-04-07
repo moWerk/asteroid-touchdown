@@ -6,6 +6,7 @@
 		<file>ValueCycler.qml</file>
         <file>HudOverlay.qml</file>
         <file>GameOverOverlay.qml</file>
+        <file>StartOverlay.qml</file>
         <file>asteroid-touchdown-ship.svg</file>
         <file>asteroid-touchdown-ship-left-gear.svg</file>
         <file>asteroid-touchdown-ship-right-gear.svg</file>
