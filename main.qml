@@ -30,58 +30,78 @@ Application {
     // ── Physics tuning
     QtObject {
         id: physics
-        readonly property real gravity:               30.0
-        readonly property real lowerThrustForce:      70.0
-        readonly property real upperThrustForce:      15.0
-        readonly property real lowerFuelDrainRate:    0.07
-        readonly property real upperFuelDrainRate:    0.007
+        // World-space downward acceleration in units/s². Raise to make descents faster and harder to arrest.
+        readonly property real gravity: 30.0
+        // Main engine force in units/s². Must comfortably exceed gravity to allow ascent (here ~2.3×).
+        // This is the dominant force — most other values are tuned relative to it.
+        readonly property real lowerThrustForce: 70.0
+        // Retro/top thruster force. Intentionally weaker — for braking and fine altitude control, not ascent.
+        readonly property real upperThrustForce: 15.0
+        // Fraction of full fuel consumed per second at full lower thrust. 1.0 / 0.07 ≈ 14 s of continuous burn.
+        readonly property real lowerFuelDrainRate: 0.07
+        // Upper thruster is 10× more fuel-efficient — penalises overuse of main engine less than braking.
+        readonly property real upperFuelDrainRate: 0.007
+        // Lower engine cuts off below this fuel fraction, preserving a reserve for upper and lateral control.
         readonly property real lowerThrustFuelCutoff: 0.05
-        readonly property real tiltSensitivity:       12.0
-        readonly property real accelSmoothing:        0.75
-        readonly property real thrustDeadZone:        0.08
-        readonly property real maxLandingSpeed:       120.0
-        readonly property real maxLandingAngleMin:    4.0
-        readonly property real maxLandingAngleMax:    20.0
-        readonly property real upperLateralFraction:  0.04
-        readonly property real tiltLateralForce:      4.0
+        // Ship tilt in degrees per g of accelerometer X delta. Higher = snappier lateral response, harder to stabilise.
+        readonly property real tiltSensitivity: 12.0
+        // Low-pass filter weight for accelerometer readings (0 = raw, 1 = frozen). 0.75 adds ~4 frame lag, filters hand tremor.
+        // Tip: calibrate at your natural playing angle — steep holds compress the Y range and reduce thrust headroom.
+        readonly property real accelSmoothing: 0.75
+        // g-force below which thrust is ignored. Prevents unintended firing when holding the watch at the calibration pose.
+        readonly property real thrustDeadZone: 0.08
+        // Maximum vertical impact speed in units/s for a survivable landing.
+        readonly property real maxLandingSpeed: 120.0
+        // Maximum ship tilt in degrees at contact for a survivable landing. Matches real lander tolerances (~15–20°).
+        readonly property real maxLandingAngleMax: 20.0
+        // Fraction of lowerThrustForce applied as lateral when upper thruster fires while the ship is tilted.
+        // Small by design — lateral nudge, not a sidestep.
+        readonly property real upperLateralFraction: 0.04
+        // Constant lateral acceleration in units/s² per radian of tilt. Active whenever the ship is angled,
+        // independent of thrust. Keeps the ship drifting in the direction it points.
+        readonly property real tiltLateralForce: 4.0
     }
 
     // ── Viewport tuning
     QtObject {
         id: viewport
-        // World dimensions in world-units (1 ≈ 1 screen pixel at zoomScale 1.0)
-        property real worldWidth:       Dims.l(100) * 10.0
-        property real worldHeight:      Dims.l(100) * 3.5
-        // startViewHeight MUST be larger than worldHeight to produce visible zoom-out
-        // Ship screen anchor — fraction from top (0 = top edge, 1 = bottom edge)
+        // Total scrollable world width in world-units. Ship wraps carousel-style at both edges.
+        property real worldWidth: Dims.l(100) * 10.0
+        // Total play-space height from spawn (Y = 0) to the floor plane.
+        property real worldHeight: Dims.l(100) * 3.5
+        // Ship is always pinned at this fraction from the top of the screen (0 = top, 1 = bottom).
+        // Lower values give more sky above the ship; higher values expose more ground.
         property real shipVerticalFraction: 0.22
-        // Floor screen anchor — world.floorY always maps to this screen Y
-        property real surfaceBottomMargin:  Dims.l(20)
-        // Minimum world-unit band kept visible between ship and floor.
-        // Prevents zoom from blowing up on final approach and touchdown.
-        property real minViewBand:          Dims.l(100) * 0.8
+        // Floor is always pinned this many pixels above the screen bottom edge.
+        // Keeps the surface visible and clear of round-screen clipping.
+        property real surfaceBottomMargin: Dims.l(20)
+        // Zoom locks when fewer than this many world-units remain between ship and floor.
+        // Prevents the camera from zooming to infinity on final approach.
+        property real minViewBand: Dims.l(100) * 0.8
     }
 
     // ── World generation tuning
     QtObject {
         id: world
-        // Floor sits at this fraction of worldHeight from the top
-        readonly property real floorY:            viewport.worldHeight * 0.80
-        // Rock geometry
-        property int  rockCount:                  55
-        property real rockBaseRadius:             viewport.worldWidth * 0.008
-        property real rockRoughness:              0.80
-        // Target pad width (level 1). Shrinks per level in generateWorld().
-        property real targetPadWidth:             viewport.worldWidth * 0.05
-        // Landing gear tip is this many world-units below ship center.
-        // Tuned to match the visual gear tip of the Dims.l(8) ship SVG at lock zoom.
+        // Y coordinate of the flat ground plane. Rocks extend above (visible) and below (hidden by floor fill).
+        readonly property real floorY: viewport.worldHeight * 0.80
+        // Target rock count per level. Actual count may fall short if the placement loop
+        // exhausts its attempt budget — increase rockCount * 8 attempts if that happens.
+        property int rockCount: 55
+        // Median rock radius in world-units. Rocks range from 0.5× (pebbles) to 8× (boulders) via size tiers.
+        property real rockBaseRadius: viewport.worldWidth * 0.008
+        // Vertex perturbation factor (0 = perfect polygon, 1 = maximally jagged). Increases with level.
+        property real rockRoughness: 0.80
+        // Landing pad width at level 1. Shrinks each level down to a minimum of 2 % of world width.
+        property real targetPadWidth: viewport.worldWidth * 0.05
+        // World-unit distance from ship centre to the visual gear tip in the SVG at close zoom.
+        // Retune this if you resize the ship art — gear contact fires when this depth crosses the surface.
         readonly property real landingGearOffset: 37.0
 
-        // Generated per level — reassigned atomically so Repeater rebuilds cleanly
-        property var  rocks:          []
-        property var  pads:           []
+        property var rocks: []
+        property var pads: []
         property real targetPadXStart: 0
-        property real targetPadXEnd:   0
+        property real targetPadXEnd: 0
     }
 
     // ── Game state
@@ -114,6 +134,8 @@ Application {
     property real thrustLower: 0.0
     property real thrustUpper: 0.0
     property real lateralUpper: 0.0
+    // Computed each physics tick — magnitude of vertical acceleration in multiples of in-game gravity.
+    property real gForce: 0.0
 
     // ── Accelerometer baseline
     property real baselineX: 0.0
@@ -305,6 +327,7 @@ Application {
         interval: 16
         repeat:   true
         property real lastMs: 0
+        property real lastVy: 0
         onTriggered: {
             var now = Date.now()
             var dt  = lastMs > 0 ? Math.min((now - lastMs) / 1000.0, 0.05) : 0.016
@@ -335,6 +358,8 @@ Application {
             var tiltLateral = Math.sin(angleRad) * physics.tiltLateralForce
             vx = vx + (lowerForce * Math.sin(angleRad) + lateralUpper + tiltLateral) * dt
             vy = vy + (physics.gravity - lowerForce * Math.cos(angleRad) + upperForce) * dt
+            gForce = Math.abs(vy - gameTimer.lastVy) / dt / physics.gravity
+            gameTimer.lastVy = vy
 
             // Carousel X wrap
             var newX = shipWorldX + vx * dt
@@ -604,17 +629,99 @@ Application {
             }          
         }
 
+        // G-force readout — above altitude label, same horizontal anchor
+        Label {
+            id: gForceLabel
+            anchors.horizontalCenter: shipItem.horizontalCenter
+            anchors.bottom: altitudeLabel.top
+            anchors.bottomMargin: Dims.l(1)
+            text: gForce.toFixed(1) + "g"
+            font.pixelSize: Dims.l(5)
+            font.family: "Noto Sans"
+            font.styleName: "Condensed Light"
+            opacity: 0.9
+            visible: playing
+        }
+
         // Altitude readout
         Label {
-                anchors.horizontalCenter: shipItem.horizontalCenter
-                anchors.bottom:              shipItem.top
-                anchors.bottomMargin:        Dims.l(3)
-                text:            Math.round(Math.max(0, world.floorY - shipWorldY)) + "m"
-                font.pixelSize:  Dims.l(5)
-                font.family:         "Noto Sans"
-                font.styleName:      "Condensed Light"
-                opacity:         0.9
-                visible:         playing
+            id: altitudeLabel
+            anchors.horizontalCenter: shipItem.horizontalCenter
+            anchors.bottom: shipItem.top
+            anchors.bottomMargin: Dims.l(3)
+            text: Math.round(Math.max(0, world.floorY - shipWorldY)) + "m"
+            font.pixelSize: Dims.l(5)
+            font.family: "Noto Sans"
+            font.styleName: "Condensed Light"
+            opacity: 0.9
+            visible: playing
+        }
+        
+        // ── Speed danger bar — right edge, fills upward, green → red at maxLandingSpeed
+        Item {
+            anchors.right: parent.right
+            anchors.rightMargin: Dims.l(3)
+            anchors.top: parent.top
+            anchors.topMargin: Dims.l(6)
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Dims.l(6)
+            width: Dims.l(2)
+            visible: playing
+            Rectangle { anchors.fill: parent; radius: width / 2; color: "#22FFFFFF" }
+            Rectangle {
+                property real fraction: Math.min(1.0, Math.max(0, vy) / physics.maxLandingSpeed)
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: Math.max(width, parent.height * fraction)
+                radius: width / 2
+                color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
+                Behavior on height { SmoothedAnimation { velocity: Dims.l(200) } }
+            }
+        }
+
+        // ── Tilt danger bar — left edge, split at centre, each half fills toward edge
+        Item {
+            id: tiltBar
+            anchors.left: parent.left
+            anchors.leftMargin: Dims.l(3)
+            anchors.top: parent.top
+            anchors.topMargin: Dims.l(6)
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Dims.l(6)
+            width: Dims.l(2)
+            visible: playing
+            Rectangle { anchors.fill: parent; radius: width / 2; color: "#22FFFFFF" }
+            // Centre divider
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                height: 2
+                color: "#44FFFFFF"
+            }
+            // Right tilt — fills downward from centre (positive shipAngle)
+            Rectangle {
+                property real fraction: Math.min(1.0, Math.max(0, shipAngle) / physics.maxLandingAngleMax)
+                anchors.top: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: Math.max(width, (tiltBar.height / 2) * fraction)
+                radius: width / 2
+                color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
+                Behavior on height { SmoothedAnimation { velocity: Dims.l(200) } }
+            }
+            // Left tilt — fills upward from centre (negative shipAngle)
+            Rectangle {
+                property real fraction: Math.min(1.0, Math.max(0, -shipAngle) / physics.maxLandingAngleMax)
+                anchors.bottom: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: Math.max(width, (tiltBar.height / 2) * fraction)
+                radius: width / 2
+                color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
+                Behavior on height { SmoothedAnimation { velocity: Dims.l(200) } }
+            }
         }
 
         // ── Death shader
@@ -969,7 +1076,8 @@ Application {
         playing       = false; landed = false; crashed = false
         gameOver      = false; playerDying = false; deathProgress = 0.0
         deathAnim.stop(); crashAnimation.stop(); landingAnimation.stop()
-        gameTimer.stop(); gameTimer.lastMs = 0; elapsedTimer.stop()
+        gameTimer.stop(); gameTimer.lastMs = 0; gameTimer.lastVy = 0; elapsedTimer.stop()
+        gForce = 0.0
         generateWorld(level)
         selectingLevel   = false; calibrating = true; calibrationCount = 0
         missionMessage  = ""
