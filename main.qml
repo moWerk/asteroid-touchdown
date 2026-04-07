@@ -767,83 +767,21 @@ Application {
             }
         }
 
-        // ── HUD bars — stacked top center
-        Column {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top:              parent.top
-            anchors.topMargin:        Dims.l(6)
-            spacing: Dims.l(1)
+        HudOverlay {
+            anchors.fill: parent
             visible: playing
-
-            // Thrust — lower engine fills right of pivot, upper fills left.
-            // Pivot position reflects the force ratio so each side is to scale.
-            Item {
-                id: thrustBar
-                width: Dims.l(28)
-                height: Dims.l(2)
-                anchors.horizontalCenter: parent.horizontalCenter
-                readonly property real pivotX: width * physics.upperThrustForce / (physics.lowerThrustForce + physics.upperThrustForce)
-
-                Rectangle { anchors.fill: parent; radius: height / 2; color: "#33FFFFA0" }
-
-                // Upper thrust — grows leftward from pivot
-                Rectangle {
-                    x: thrustBar.pivotX - width
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: Math.max(parent.height, thrustBar.pivotX * thrustUpper)
-                    radius: height / 2
-                    color: "#88CCFFFF"
-                    Behavior on width { SmoothedAnimation { velocity: Dims.l(60) } }
-                }
-
-                // Lower thrust — grows rightward from pivot
-                Rectangle {
-                    x: thrustBar.pivotX
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: Math.max(parent.height, (thrustBar.width - thrustBar.pivotX) * thrustLower)
-                    radius: height / 2
-                    color: "#FFFFA0"
-                    Behavior on width { SmoothedAnimation { velocity: Dims.l(120) } }
-                }
-
-                // Pivot marker
-                Rectangle {
-                    x: thrustBar.pivotX - width / 2
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: 2
-                    color: "#66FFFFA0"
-                }
-            }
-
-            // Fuel — white → yellow → red
-            Item {
-                width: Dims.l(28); height: Dims.l(2)
-                anchors.horizontalCenter: parent.horizontalCenter
-                Rectangle { anchors.fill: parent; radius: height/2; color: "#33FFFFFF" }
-                Rectangle {
-                    anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
-                    width: Math.max(height, parent.width * fuel)
-                    radius: height / 2
-                    color: fuel > 0.25 ? "#FFFFFF" : fuel > 0.10 ? "#FFDD00" : "#FF4400"
-                    Behavior on width { SmoothedAnimation { velocity: Dims.l(60) } }
-                }
-            }
-
-            // Altitude — cyan, shrinks to zero at surface
-            Item {
-                width: Dims.l(28); height: Dims.l(2)
-                anchors.horizontalCenter: parent.horizontalCenter
-                Rectangle { anchors.fill: parent; radius: height/2; color: "#3300FFFF" }
-                Rectangle {
-                    anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
-                    width: Math.max(height, parent.width * Math.min(1.0, Math.max(0, world.floorY - shipWorldY) / world.floorY))
-                    radius: height / 2; color: "#00FFFF"
-                    Behavior on width { SmoothedAnimation { velocity: Dims.l(40) } }
-                }
-            }
+            thrustLower: app.thrustLower
+            thrustUpper: app.thrustUpper
+            fuel: app.fuel
+            floorY: world.floorY
+            shipWorldY: app.shipWorldY
+            currentLevel: app.currentLevel
+            vy: app.vy
+            shipAngle: app.shipAngle
+            lowerThrustForce: physics.lowerThrustForce
+            upperThrustForce: physics.upperThrustForce
+            maxLandingSpeed: physics.maxLandingSpeed
+            maxLandingAngleMax: physics.maxLandingAngleMax
         }
 
         // Level — Center bottom
@@ -937,130 +875,17 @@ Application {
             opacity:        0.9
         }
 
-        // ── Game over overlay
-        Rectangle {
+        GameOverOverlay {
             anchors.fill: parent
-            color:   "#CC000000"
-            visible: gameOver
-            opacity: gameOver ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 400 } }
-
-            Column {
-                id: gameOverTop
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: Dims.l(4)
-                spacing: Dims.l(2)
-
-                // Time this run
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text:           formatTime(elapsedMs)
-                    font.pixelSize: Dims.l(9)
-                }
-
-                // Result header
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text:           crashed ? "CRASHED" : "TOUCHDOWN!"
-                    font.family:         "Barlow"
-                    font.styleName:      "Medium" 
-                    font.pixelSize: Dims.l(11)
-                    color:          crashed ? "#FF4400" : "#AAFFAA"
-                }
-                
-                // Pad bonus hint
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: landed && !(shipWorldX >= world.targetPadXStart &&
-                                         shipWorldX <= world.targetPadXEnd)
-                    text:           "Land on pad to advance!"
-                    font.pixelSize: Dims.l(5)
-                    opacity:        0.6
-                }
-
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: landed && TouchdownStorage.highestUnlockedLevel === currentLevel + 1
-                    text:           "Level " + (currentLevel + 1) + " unlocked!"
-                    font.pixelSize: Dims.l(5)
-                    color:          "#AAFFAA"
-                }
-            }
-
-            // Per-level scores list
-            ListView {
-                id: scoresList
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: gameOverTop.bottom
-                anchors.topMargin: Dims.l(4)
-                anchors.bottom: buttonsColumn.top
-                anchors.bottomMargin: Dims.l(2)
-                width: Dims.l(55)
-                model: TouchdownStorage.highestUnlockedLevel
-
-                delegate: Item {
-                    width: scoresList.width
-                    height: Dims.l(8)
-                    property int lvl: index + 1
-                    property int best: TouchdownStorage.bestTime(lvl)
-
-                    Label {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text:           "L" + lvl
-                        font.pixelSize: Dims.l(4.5)
-                        opacity:        lvl === currentLevel ? 1.0 : 0.6
-                        color:          lvl === currentLevel ? "#AAFFAA" : "#FFFFFF"
-                    }
-                    Label {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text:           best > 0 ? formatTime(best) : "—"
-                        font.pixelSize: Dims.l(4.5)
-                        opacity:        lvl === currentLevel ? 1.0 : 0.6
-                        color:          lvl === currentLevel ? "#AAFFAA" : "#FFFFFF"
-                    }
-                }
-            }
-
-            // Buttons
-            Column {
-                id: buttonsColumn
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: Dims.l(6)
-                spacing: Dims.l(3)
-
-                // Retry same level
-                Rectangle {
-                    width: Dims.l(38); height: Dims.l(12); radius: height / 2
-                    color: "#55FFFFFF"
-                    Label {
-                        anchors.centerIn: parent
-                        text:           "RETRY L" + currentLevel
-                        font.pixelSize: Dims.l(5)
-                    }
-                    MouseArea { anchors.fill: parent; onClicked: startLevel(currentLevel) }
-                }
-
-                // Jump to highest unlocked (only if higher than current)
-                Rectangle {
-                    visible: TouchdownStorage.highestUnlockedLevel > currentLevel
-                    width: Dims.l(38); height: Dims.l(12); radius: height / 2
-                    color: "#33FFFFFF"
-                    Label {
-                        anchors.centerIn: parent
-                        text:           "NEXT L" + TouchdownStorage.highestUnlockedLevel
-                        font.pixelSize: Dims.l(5)
-                        opacity:        0.9
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: startLevel(TouchdownStorage.highestUnlockedLevel)
-                    }
-                }
-            }
+            gameOver: app.gameOver
+            crashed: app.crashed
+            landed: app.landed
+            elapsedMs: app.elapsedMs
+            currentLevel: app.currentLevel
+            shipWorldX: app.shipWorldX
+            targetPadXStart: world.targetPadXStart
+            targetPadXEnd: world.targetPadXEnd
+            onStartLevelRequested: startLevel(level)
         }
     }
 
@@ -1086,13 +911,6 @@ Application {
         commsSequence.stop()
         smoothedX = 0; smoothedY = 0
         calibrationTimer.start()
-    }
-
-    function formatTime(ms) {
-        var s  = Math.floor(ms / 1000)
-        var m  = Math.floor(s / 60)
-        var ds = Math.floor((ms % 1000) / 100)
-        return (m > 0 ? m + ":" : "") + (m > 0 && (s % 60) < 10 ? "0" : "") + (s % 60) + "." + ds + "s"
     }
 
     Component.onCompleted: {
