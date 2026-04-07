@@ -299,13 +299,13 @@ Application {
             attempts++
             var cx       = Math.random() * ww
             var rockRoll = placed % 10
-            var r = rockRoll === 9 ? baseR * (8 + Math.random() * 4) : rockRoll === 4 ? baseR * (2 + Math.random() * 2) : baseR * (0.5 + Math.random() * 1.0)
+            var r = rockRoll === 9 ? baseR * (5 + Math.random() * 3) : rockRoll === 4 ? baseR * (2 + Math.random() * 2) : baseR * (0.5 + Math.random() * 1.0)
 
             if (cx > padX - r && cx < padX + padWidth + r) continue
 
             var tooClose = false
             for (var ri = 0; ri < newRocks.length; ri++) {
-                if (newRocks[ri].r < baseR * 2 && Math.abs(newRocks[ri].cx - cx) < r + newRocks[ri].r * 0.7) {
+                if (Math.abs(newRocks[ri].cx - cx) < r + newRocks[ri].r * 0.7) {
                     tooClose = true
                     break
                 }
