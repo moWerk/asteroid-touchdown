@@ -16,9 +16,9 @@ include(AsteroidCMakeSettings)
 include(AsteroidTranslations)
 
 add_executable(asteroid-touchdown
-    main.cpp
-    TouchdownStorage.cpp
-    resources.qrc)
+    src/main.cpp
+    src/TouchdownStorage.cpp
+    src/resources.qrc)
 
 target_link_libraries(asteroid-touchdown PRIVATE
     AsteroidApp)

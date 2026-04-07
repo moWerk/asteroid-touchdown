@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>DeathShader.qml</file>
+        <file>CommsMessages.qml</file>
+        <file>ValueCycler.qml</file>
+        <file>HudOverlay.qml</file>
+        <file>GameOverOverlay.qml</file>
+        <file>StartOverlay.qml</file>
+        <file alias="asteroid-touchdown-ship.svg">../assets/asteroid-touchdown-ship.svg</file>
+        <file alias="asteroid-touchdown-ship-left-gear.svg">../assets/asteroid-touchdown-ship-left-gear.svg</file>
+        <file alias="asteroid-touchdown-ship-right-gear.svg">../assets/asteroid-touchdown-ship-right-gear.svg</file>
+        <file alias="asteroid-touchdown-thruster.svg">../assets/asteroid-touchdown-thruster.svg</file>
+    </qresource>
+</RCC>
