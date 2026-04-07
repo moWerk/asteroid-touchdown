@@ -4,7 +4,6 @@
         <file>DeathShader.qml</file>
         <file>CommsMessages.qml</file>
         <file>ValueCycler.qml</file>
-        <file>HudOverlay.qml</file>
         <file>GameOverOverlay.qml</file>
         <file>StartOverlay.qml</file>
         <file alias="asteroid-touchdown-ship.svg">../assets/asteroid-touchdown-ship.svg</file>

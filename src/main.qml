@@ -626,101 +626,6 @@ Application {
                 transformOrigin: Item.Top
                 opacity: Math.max(thrustUpper * (Math.abs(shipAngle) < 5 ? 1.0 : shipAngle < 0 ? 1.0 : 0.4), Math.min(1.0, Math.max(0.0, -shipAngle / 30.0)))
                 Behavior on height { SmoothedAnimation { velocity: Dims.l(15) } }
-            }          
-        }
-
-        // G-force readout — above altitude label, same horizontal anchor
-        Label {
-            id: gForceLabel
-            anchors.horizontalCenter: shipItem.horizontalCenter
-            anchors.bottom: altitudeLabel.top
-            anchors.bottomMargin: Dims.l(1)
-            text: gForce.toFixed(1) + "g"
-            font.pixelSize: Dims.l(5)
-            font.family: "Noto Sans"
-            font.styleName: "Condensed Light"
-            opacity: 0.9
-            visible: playing
-        }
-
-        // Altitude readout
-        Label {
-            id: altitudeLabel
-            anchors.horizontalCenter: shipItem.horizontalCenter
-            anchors.bottom: shipItem.top
-            anchors.bottomMargin: Dims.l(3)
-            text: Math.round(Math.max(0, world.floorY - shipWorldY)) + "m"
-            font.pixelSize: Dims.l(5)
-            font.family: "Noto Sans"
-            font.styleName: "Condensed Light"
-            opacity: 0.9
-            visible: playing
-        }
-        
-        // ── Speed danger bar — right edge, fills upward, green → red at maxLandingSpeed
-        Item {
-            anchors.right: parent.right
-            anchors.rightMargin: Dims.l(3)
-            anchors.top: parent.top
-            anchors.topMargin: Dims.l(6)
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: Dims.l(6)
-            width: Dims.l(2)
-            visible: playing
-            Rectangle { anchors.fill: parent; radius: width / 2; color: "#22FFFFFF" }
-            Rectangle {
-                property real fraction: Math.min(1.0, Math.max(0, vy) / physics.maxLandingSpeed)
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: Math.max(width, parent.height * fraction)
-                radius: width / 2
-                color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
-                Behavior on height { SmoothedAnimation { velocity: Dims.l(200) } }
-            }
-        }
-
-        // ── Tilt danger bar — left edge, split at centre, each half fills toward edge
-        Item {
-            id: tiltBar
-            anchors.left: parent.left
-            anchors.leftMargin: Dims.l(3)
-            anchors.top: parent.top
-            anchors.topMargin: Dims.l(6)
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: Dims.l(6)
-            width: Dims.l(2)
-            visible: playing
-            Rectangle { anchors.fill: parent; radius: width / 2; color: "#22FFFFFF" }
-            // Centre divider
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                height: 2
-                color: "#44FFFFFF"
-            }
-            // Right tilt — fills downward from centre (positive shipAngle)
-            Rectangle {
-                property real fraction: Math.min(1.0, Math.max(0, shipAngle) / physics.maxLandingAngleMax)
-                anchors.top: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: Math.max(width, (tiltBar.height / 2) * fraction)
-                radius: width / 2
-                color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
-                Behavior on height { SmoothedAnimation { velocity: Dims.l(200) } }
-            }
-            // Left tilt — fills upward from centre (negative shipAngle)
-            Rectangle {
-                property real fraction: Math.min(1.0, Math.max(0, -shipAngle) / physics.maxLandingAngleMax)
-                anchors.bottom: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: Math.max(width, (tiltBar.height / 2) * fraction)
-                radius: width / 2
-                color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
-                Behavior on height { SmoothedAnimation { velocity: Dims.l(200) } }
             }
         }
 
@@ -740,11 +645,11 @@ Application {
             color:        "#CC000000"
             visible:      showingComms
             opacity:      commsOpacity
-            
+
             Label {
                 anchors.centerIn:    parent
                 text:                missionMessage
-                font.pixelSize:      Dims.l(14)
+                font.pixelSize:      Dims.l(15)
                 font.family:         "Barlow"
                 font.styleName:      "Bold"
                 lineHeight:          0.9
@@ -767,21 +672,191 @@ Application {
             }
         }
 
-        HudOverlay {
+        // ── HUD — altitude left, fuel right, action column centre
+        Item {
             anchors.fill: parent
             visible: playing
-            thrustLower: app.thrustLower
-            thrustUpper: app.thrustUpper
-            fuel: app.fuel
-            floorY: world.floorY
-            shipWorldY: app.shipWorldY
-            currentLevel: app.currentLevel
-            vy: app.vy
-            shipAngle: app.shipAngle
-            lowerThrustForce: physics.lowerThrustForce
-            upperThrustForce: physics.upperThrustForce
-            maxLandingSpeed: physics.maxLandingSpeed
-            maxLandingAngleMax: physics.maxLandingAngleMax
+
+            // ── Altitude — left edge
+            Item {
+                id: altBar
+                anchors.left: parent.left
+                anchors.leftMargin: Dims.l(6)
+                anchors.top: parent.top
+                anchors.topMargin: Dims.l(28)
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: Dims.l(28)
+                width: Dims.l(3)
+                Rectangle { anchors.fill: parent; radius: width / 2; color: "#3300FFFF"; opacity: 0.3 }
+                Rectangle {
+                    property real fraction: Math.min(1.0, Math.max(0, world.floorY - shipWorldY) / world.floorY)
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: Math.max(width, parent.height * fraction)
+                    radius: width / 2
+                    color: "#00FFFF"
+                    opacity: 0.4
+                    Behavior on height { SmoothedAnimation { velocity: Dims.l(40) } }
+                }
+            }
+
+            // Altitude readout
+            Label {
+                id: altitudeLabel
+                anchors.left: altBar.right
+                anchors.verticalCenter: altBar.verticalCenter
+                anchors.leftMargin: Dims.l(4)
+                text: Math.round(Math.max(0, world.floorY - shipWorldY)) + "m"
+                font { pixelSize: Dims.l(6); family: "Noto Sans"; styleName: "Condensed Medium" }
+                opacity: 0.9
+            }
+
+            // ── Fuel — right edge
+            Item {
+                id: fuelBar
+                anchors.right: parent.right
+                anchors.rightMargin: Dims.l(6)
+                anchors.top: parent.top
+                anchors.topMargin: Dims.l(28)
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: Dims.l(28)
+                width: Dims.l(3)
+                Rectangle { anchors.fill: parent; radius: width / 2; color: "#33FFFFFF"; opacity: 0.3 }
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: Math.max(width, parent.height * fuel)
+                    radius: width / 2
+                    color: fuel > 0.25 ? "#FFFFFF" : fuel > 0.10 ? "#FFDD00" : "#FF4400"
+                    opacity: 0.3
+                    Behavior on height { SmoothedAnimation { velocity: Dims.l(60) } }
+                }
+            }
+
+            // G-force readout
+            Label {
+                id: gForceLabel
+                anchors.right: fuelBar.left
+                anchors.verticalCenter: fuelBar.verticalCenter
+                anchors.rightMargin: Dims.l(4)
+                text: gForce.toFixed(1) + "g"
+                font { pixelSize: Dims.l(6); family: "Noto Sans"; styleName: "Condensed Bold" }
+                opacity: 0.9
+            }
+
+            // ── Action column — speed danger, thrust, tilt top-to-bottom
+            Column {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: Dims.l(6)
+                spacing: Dims.l(1)
+
+                // Speed danger — most decisive landing indicator, fills rightward green → red
+                Item {
+                    id: speedBar
+                    width: Dims.l(40)
+                    height: Dims.l(2.4)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    Rectangle { anchors.fill: parent; radius: height / 2; color: "#22FFFFFF" }
+                    Rectangle {
+                        property real fraction: Math.min(1.0, Math.max(0, vy) / physics.maxLandingSpeed)
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: Math.max(height, parent.width * fraction)
+                        radius: height / 2
+                        color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
+                        Behavior on width { SmoothedAnimation { velocity: Dims.l(200) } }
+                    }
+                }
+
+                // Thrust — lower engine fills right of pivot, upper fills left.
+                // Pivot position reflects the force ratio so each side is to scale.
+                Item {
+                    id: thrustBar
+                    width: Dims.l(43)
+                    height: Dims.l(2.4)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    readonly property real pivotX: width * physics.upperThrustForce / (physics.lowerThrustForce + physics.upperThrustForce)
+
+                    Rectangle { anchors.fill: parent; radius: height / 2; color: "#33FFFFA0" }
+
+                    // Upper thrust — grows leftward from pivot
+                    Rectangle {
+                        x: thrustBar.pivotX - width
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: Math.max(parent.height, thrustBar.pivotX * thrustUpper)
+                        radius: height / 2
+                        color: "#88CCFFFF"
+                        Behavior on width { SmoothedAnimation { velocity: Dims.l(60) } }
+                    }
+
+                    // Lower thrust — grows rightward from pivot
+                    Rectangle {
+                        x: thrustBar.pivotX
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: Math.max(parent.height, (thrustBar.width - thrustBar.pivotX) * thrustLower)
+                        radius: height / 2
+                        color: "#FFFFA0"
+                        Behavior on width { SmoothedAnimation { velocity: Dims.l(120) } }
+                    }
+
+                    // Pivot marker
+                    Rectangle {
+                        x: thrustBar.pivotX - width / 2
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: 2
+                        color: "#66FFFFA0"
+                    }
+                }
+
+                // Tilt — split at centre, fills outward from centre, wiggles with ship angle
+                Item {
+                    id: tiltBar
+                    width: Dims.l(46)
+                    height: Dims.l(2.4)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    Rectangle { anchors.fill: parent; radius: height / 2; color: "#22FFFFFF" }
+
+                    // Right tilt — grows rightward from centre
+                    Rectangle {
+                        property real fraction: Math.min(1.0, Math.max(0, shipAngle) / physics.maxLandingAngleMax)
+                        anchors.left: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: Math.max(height, (tiltBar.width / 2) * fraction)
+                        radius: height / 2
+                        color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
+                        Behavior on width { SmoothedAnimation { velocity: Dims.l(200) } }
+                    }
+                    // Left tilt — grows leftward from centre
+                    Rectangle {
+                        property real fraction: Math.min(1.0, Math.max(0, -shipAngle) / physics.maxLandingAngleMax)
+                        anchors.right: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: Math.max(height, (tiltBar.width / 2) * fraction)
+                        radius: height / 2
+                        color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
+                        Behavior on width { SmoothedAnimation { velocity: Dims.l(200) } }
+                    }
+                }
+            }
+
+            // Level — centre bottom
+            Label {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: Dims.l(2)
+                text: "L" + currentLevel
+                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(7) }
+                opacity: 0.8
+            }
         }
 
         StartOverlay {
