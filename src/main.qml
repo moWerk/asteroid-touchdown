@@ -31,39 +31,39 @@ Application {
     QtObject {
         id: physics
         // World-space downward acceleration in units/s². Raise to make descents faster and harder to arrest.
-        readonly property real gravity: 30.0
+        readonly property real gravity: 40.0
         // Main engine force in units/s². Must comfortably exceed gravity to allow ascent (here ~2.3×).
         // This is the dominant force — most other values are tuned relative to it.
-        readonly property real lowerThrustForce: 70.0
+        readonly property real lowerThrustForce: 100.0
         // Retro/top thruster force. Intentionally weaker — for braking and fine altitude control, not ascent.
-        readonly property real upperThrustForce: 15.0
+        readonly property real upperThrustForce: 20.0
         // Fraction of full fuel consumed per second at full lower thrust. 1.0 / 0.07 ≈ 14 s of continuous burn.
-        readonly property real lowerFuelDrainRate: 0.07
+        readonly property real lowerFuelDrainRate: 0.06
         // Upper thruster is 10× more fuel-efficient — penalises overuse of main engine less than braking.
-        readonly property real upperFuelDrainRate: 0.007
+        readonly property real upperFuelDrainRate: 0.005
         // Lower engine cuts off below this fuel fraction, preserving a reserve for upper and lateral control.
         readonly property real lowerThrustFuelCutoff: 0.05
         // Ship tilt in degrees per g of accelerometer X delta. Higher = snappier lateral response, harder to stabilise.
-        readonly property real tiltSensitivity: 12.0
+        readonly property real tiltSensitivity: 14.0
         // Low-pass filter weight for accelerometer readings (0 = raw, 1 = frozen). 0.75 adds ~4 frame lag, filters hand tremor.
         // Tip: calibrate at your natural playing angle — steep holds compress the Y range and reduce thrust headroom.
-        readonly property real accelSmoothing: 0.75
+        readonly property real accelSmoothing: 0.65
         // g-force below which thrust is ignored. Prevents unintended firing when holding the watch at the calibration pose.
-        readonly property real thrustDeadZone: 0.08
+        readonly property real thrustDeadZone: 0.06
         // Maximum vertical impact speed in units/s for a survivable landing.
-        readonly property real maxLandingSpeed: 120.0
+        readonly property real maxLandingSpeed: 80.0
         // Maximum ship tilt in degrees at contact for a survivable landing. Matches real lander tolerances (~15–20°).
-        readonly property real maxLandingAngleMax: 20.0
+        readonly property real maxLandingAngleMax: 16.0
         // Fraction of lowerThrustForce applied as lateral when upper thruster fires while the ship is tilted.
         // Small by design — lateral nudge, not a sidestep.
         readonly property real upperLateralFraction: 0.04
         // Constant lateral acceleration in units/s² per radian of tilt. Active whenever the ship is angled,
         // independent of thrust. Keeps the ship drifting in the direction it points.
-        readonly property real tiltLateralForce: 4.0
+        readonly property real tiltLateralForce: 6.0
         // UFO — first appears at level 10, speeds up each level after.
         // ufoBaseSpeed is world-units per second at level 10.
-        // ufoSpeedScale adds this fraction of ufoBaseSpeed per level above 10.
         readonly property real ufoBaseSpeed: 120.0
+        // ufoSpeedScale adds this fraction of ufoBaseSpeed per level above 10.        
         readonly property real ufoSpeedScale: 0.15
         // Wobble amplitude in world-units — UFO swings this far above and below player Y.
         // 6 × ship half-height (40/2 = 20) gives a ~120 unit swing each way.
@@ -82,16 +82,16 @@ Application {
         // Total scrollable world width in world-units. Ship wraps carousel-style at both edges.
         property real worldWidth: Dims.l(100) * 10.0
         // Total play-space height from spawn (Y = 0) to the floor plane.
-        property real worldHeight: Dims.l(100) * 3.5
+        property real worldHeight: Dims.l(100) * 3.8
         // Ship is always pinned at this fraction from the top of the screen (0 = top, 1 = bottom).
         // Lower values give more sky above the ship; higher values expose more ground.
         property real shipVerticalFraction: 0.22
         // Floor is always pinned this many pixels above the screen bottom edge.
         // Keeps the surface visible and clear of round-screen clipping.
-        property real surfaceBottomMargin: Dims.l(20)
+        property real surfaceBottomMargin: Dims.l(25)
         // Zoom locks when fewer than this many world-units remain between ship and floor.
         // Prevents the camera from zooming to infinity on final approach.
-        property real minViewBand: Dims.l(100) * 0.8
+        property real minViewBand: Dims.l(100) * 0.86
     }
 
     // ── World generation tuning
@@ -105,7 +105,7 @@ Application {
         // Median rock radius in world-units. Rocks range from 0.5× (pebbles) to 8× (boulders) via size tiers.
         property real rockBaseRadius: viewport.worldWidth * 0.008
         // Vertex perturbation factor (0 = perfect polygon, 1 = maximally jagged). Increases with level.
-        property real rockRoughness: 0.80
+        property real rockRoughness: 0.84
         // Landing pad width at level 1. Shrinks each level down to a minimum of 2 % of world width.
         property real targetPadWidth: viewport.worldWidth * 0.05
         // World-unit distance from ship centre to the visual gear tip in the SVG at close zoom.
@@ -150,6 +150,8 @@ Application {
     property real lateralUpper: 0.0
     // Computed each physics tick — magnitude of vertical acceleration in multiples of in-game gravity.
     property real gForce: 0.0
+    // Filtered display value — updated every 250ms to keep the readout readable.
+    property real gForceDisplay: 0.0
 
     // ── UFO state
     property bool ufoActive:  false
@@ -475,6 +477,13 @@ Application {
         onTriggered: elapsedMs += 100
     }
 
+    Timer {
+        interval: 250
+        repeat: true
+        running: playing
+        onTriggered: gForceDisplay = gForce
+    }
+
     // ── UFO spawn — active from level 10 onward, re-arms each time UFO leaves world
     Timer {
         id: ufoSpawnTimer
@@ -559,15 +568,17 @@ Application {
         // Black space
         Rectangle { anchors.fill: parent; color: "#000000" }
 
-        // ── Starfield — world-space, scales with zoom
+        // ── Starfield — fixed screen-space, no zoom. Stars are lightyears away,
+        // camera movement has no effect on them. Y uses a different irrational
+        // multiplier to prevent accidental alignment at same Y.
         Repeater {
             model: 22
             delegate: Rectangle {
-                property real wx: (index * 137.508 * viewport.worldWidth)  % viewport.worldWidth
-                property real wy: (index * 97.333  * viewport.worldHeight) % viewport.worldHeight
-                x: worldToScreenX(wx) - width / 2
-                y: worldToScreenY(wy) - height / 2
-                width:  Math.max(1, zoomScale * (1.0 + (index % 3) * 0.8))
+                readonly property real sx: (index * 137.508) % 1.0 * app.width
+                readonly property real sy: (index * 53.177)  % 1.0 * app.height
+                x: sx - width / 2
+                y: sy - height / 2
+                width:  1.0 + (index % 3) * 0.8
                 height: width
                 color:  "#AAFFFFFF"
                 radius: width / 2
@@ -581,7 +592,10 @@ Application {
             y:      worldToScreenY(world.floorY)
             width:  app.width
             height: Math.max(0, app.height - worldToScreenY(world.floorY))
-            color:  "#1A1A1A"
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "#2A2A2A" }
+                GradientStop { position: 1.0; color: "#0D0D0D" }
+            }
         }
 
         // ── Rocks — one Shape per rock, each fully self-contained
@@ -765,39 +779,85 @@ Application {
             }
         }
 
-        // ── HUD — altitude left, fuel right, action column centre
+        // ── HUD — left: speed+AGL, right: PROP+thrust, top: gforce+tilt
         Item {
             anchors.fill: parent
             visible: playing
 
-            // Chord widths make the three bars follow the round screen edge naturally.
-            // Each width = 82% of the actual screen chord at that bar's vertical midpoint.
-            readonly property real screenR: app.width / 2
-            readonly property real speedBarW:  2 * Math.sqrt(Math.max(0, screenR*screenR - Math.pow(screenR - Dims.l(7.2),  2))) * 0.82
-            readonly property real thrustBarW: 2 * Math.sqrt(Math.max(0, screenR*screenR - Math.pow(screenR - Dims.l(10.6), 2))) * 0.82
-            readonly property real tiltBarW:   2 * Math.sqrt(Math.max(0, screenR*screenR - Math.pow(screenR - Dims.l(14.0), 2))) * 0.82
-
-            // G-force — Xolonium Bold, bottom aligned to speedBar, floats into top margin
+            // G-force — top centre, filtered, Xolonium Bold
             Label {
                 id: gForceLabel
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: speedBar.bottom
-                text: gForce.toFixed(1) + "g"
-                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(7) }
+                anchors.top: parent.top
+                anchors.topMargin: Dims.l(5)
+                text: gForceDisplay.toFixed(1) + "g"
+                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(6); letterSpacing: 0.5 }
                 color: "#f0c30e"
                 opacity: 0.9
             }
 
-            // ── Altitude — left edge, AGL = Above Ground Level
+            // Tilt — horizontal, directly below g-force label, width = old thrust slot
+            Item {
+                id: tiltBar
+                width: Dims.l(43)
+                height: Dims.l(2.4)
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: gForceLabel.bottom
+                anchors.topMargin: Dims.l(1)
+                Rectangle { anchors.fill: parent; radius: height / 2; color: "#22FFFFFF" }
+                Rectangle {
+                    property real fraction: Math.min(1.0, Math.max(0, shipAngle) / physics.maxLandingAngleMax)
+                    anchors.left: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: Math.max(height, (tiltBar.width / 2) * fraction)
+                    radius: height / 2
+                    color: fraction > 0.75 ? "#dc2919" : fraction > 0.4 ? "#e57c21" : "#f0c30e"
+                    Behavior on width { SmoothedAnimation { velocity: Dims.l(200) } }
+                }
+                Rectangle {
+                    property real fraction: Math.min(1.0, Math.max(0, -shipAngle) / physics.maxLandingAngleMax)
+                    anchors.right: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: Math.max(height, (tiltBar.width / 2) * fraction)
+                    radius: height / 2
+                    color: fraction > 0.75 ? "#dc2919" : fraction > 0.4 ? "#e57c21" : "#f0c30e"
+                    Behavior on width { SmoothedAnimation { velocity: Dims.l(200) } }
+                }
+            }
+
+            // ── Left side: speed danger (leftmost) + AGL pill with tick marks
+
+            // Speed danger — vertical pill, fills upward as descent speed increases
+            Item {
+                id: speedBarV
+                width: Dims.l(2.4)
+                height: Dims.l(50)
+                anchors.left: parent.left
+                anchors.leftMargin: Dims.l(3)
+                anchors.verticalCenter: parent.verticalCenter
+                Rectangle { anchors.fill: parent; radius: width / 2; color: "#22dc2919" }
+                Rectangle {
+                    property real fraction: Math.min(1.0, Math.max(0, vy) / physics.maxLandingSpeed)
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: Math.max(width, parent.height * fraction)
+                    radius: width / 2
+                    color: fraction > 0.75 ? "#dc2919" : fraction > 0.4 ? "#e57c21" : "#f0c30e"
+                    Behavior on height { SmoothedAnimation { velocity: Dims.l(200) } }
+                }
+            }
+
+            // AGL — vertical pill, right of speed bar, ticks point right toward screen centre
             Item {
                 id: altBar
-                anchors.left: parent.left
-                anchors.leftMargin: Dims.l(4)
-                anchors.top: parent.top
-                anchors.topMargin: Dims.l(28)
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: Dims.l(28)
-                width: Dims.l(5)
+                width: Dims.l(7)
+                height: Dims.l(50)
+                anchors.left: speedBarV.right
+                anchors.leftMargin: Dims.l(2)
+                anchors.verticalCenter: parent.verticalCenter
                 Rectangle { anchors.fill: parent; radius: width / 2; color: "#3300FFFF"; opacity: 0.3 }
                 Rectangle {
                     property real fraction: Math.min(1.0, Math.max(0, world.floorY - shipWorldY) / world.floorY)
@@ -819,22 +879,37 @@ Application {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     text: "AGL  " + Math.round(Math.max(0, world.floorY - shipWorldY)) + "m"
-                    font { family: "Teko"; styleName: "Bold"; pixelSize: Dims.l(3.5); letterSpacing: 1.5 }
+                    font { family: "Teko"; styleName: "Bold"; pixelSize: Dims.l(4); letterSpacing: 1.4 }
                     color: "#00FFFF"
                     opacity: 0.5
                 }
+                
+                // 9 tick marks at 10%–90%, on right side pointing toward screen centre.
+                // Tick dims when altitude fraction drops below its threshold.
+                Repeater {
+                    model: 9
+                    Rectangle {
+                        property real threshold: (index + 1) * 0.1
+                        property real fraction: Math.min(1.0, Math.max(0, world.floorY - shipWorldY) / world.floorY)
+                        x: altBar.width
+                        y: parent.height * (1.0 - threshold) - 1
+                        width: Dims.l(1.5)
+                        height: 2
+                        color: fraction >= threshold ? "#8800FFFF" : "#2200FFFF"
+                    }
+                }
             }
 
-            // ── Fuel — right edge, PROP = propellant (rocket terminology)
+            // ── Right side: PROP pill with tick marks + thrust (rightmost)
+
+            // PROP — vertical pill, left of thrust bar, ticks point left toward screen centre
             Item {
                 id: fuelBar
-                anchors.right: parent.right
-                anchors.rightMargin: Dims.l(4)
-                anchors.top: parent.top
-                anchors.topMargin: Dims.l(28)
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: Dims.l(28)
-                width: Dims.l(5)
+                width: Dims.l(7)
+                height: Dims.l(50)
+                anchors.right: thrustBarV.left
+                anchors.rightMargin: Dims.l(2)
+                anchors.verticalCenter: parent.verticalCenter
                 Rectangle { anchors.fill: parent; radius: width / 2; color: "#33f0ae0e"; opacity: 0.3 }
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -855,111 +930,64 @@ Application {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     text: "PROP  " + Math.round(fuel * 100) + "%"
-                    font { family: "Teko"; styleName: "Bold"; pixelSize: Dims.l(3.5); letterSpacing: 1.5 }
+                    font { family: "Teko"; styleName: "Bold"; pixelSize: Dims.l(4); letterSpacing: 1.4 }
                     color: fuel > 0.25 ? "#f0ae0e" : fuel > 0.10 ? "#e57c21" : "#dc2919"
                     opacity: 0.5
                 }
+                
+                // 9 tick marks at 10%–90%, on left side pointing toward screen centre.
+                // Tick dims when fuel fraction drops below its threshold.
+                Repeater {
+                    model: 9
+                    Rectangle {
+                        property real threshold: (index + 1) * 0.1
+                        x: -Dims.l(1.5)
+                        y: parent.height * (1.0 - threshold) - 1
+                        width: Dims.l(1.5)
+                        height: 2
+                        color: fuel >= threshold ? "#88f0ae0e" : "#22f0ae0e"
+                    }
+                }
             }
 
-            // ── Action column — speed danger, thrust, tilt top-to-bottom
-            Column {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: Dims.l(6)
-                spacing: Dims.l(1)
-
-                // Speed danger — most decisive landing indicator, fills rightward green → red
-                Item {
-                    id: speedBar
-                    width: parent.parent.speedBarW
-                    height: Dims.l(2.4)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    Rectangle { anchors.fill: parent; radius: height / 2; color: "#22FFFFFF" }
-                    Rectangle {
-                        property real fraction: Math.min(1.0, Math.max(0, vy) / physics.maxLandingSpeed)
-                        anchors.left: parent.left
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: Math.max(height, parent.width * fraction)
-                        radius: height / 2
-                        color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
-                        Behavior on width { SmoothedAnimation { velocity: Dims.l(200) } }
-                    }
+            // Thrust — vertical pill, rightmost.
+            // Pivot at force ratio from top: upper retro fills upward, main fills downward.
+            Item {
+                id: thrustBarV
+                width: Dims.l(2.4)
+                height: Dims.l(50)
+                anchors.right: parent.right
+                anchors.rightMargin: Dims.l(3)
+                anchors.verticalCenter: parent.verticalCenter
+                readonly property real pivotY: height * physics.upperThrustForce / (physics.lowerThrustForce + physics.upperThrustForce)
+                Rectangle { anchors.fill: parent; radius: width / 2; color: "#22f0ae0e" }
+                // Upper retro — cold blue, fills upward from pivot
+                Rectangle {
+                    y: thrustBarV.pivotY - height
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: Math.max(parent.width, thrustBarV.pivotY * thrustUpper)
+                    radius: parent.width / 2
+                    color: "#88CCFFFF"
+                    Behavior on height { SmoothedAnimation { velocity: Dims.l(60) } }
                 }
-
-                // Thrust — lower engine fills right of pivot, upper fills left.
-                // Pivot position reflects the force ratio so each side is to scale.
-                Item {
-                    id: thrustBar
-                    width: parent.parent.thrustBarW
-                    height: Dims.l(2.4)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    readonly property real pivotX: width * physics.upperThrustForce / (physics.lowerThrustForce + physics.upperThrustForce)
-
-                    Rectangle { anchors.fill: parent; radius: height / 2; color: "#33FFFFA0" }
-
-                    // Upper thrust — grows leftward from pivot
-                    Rectangle {
-                        x: thrustBar.pivotX - width
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: Math.max(parent.height, thrustBar.pivotX * thrustUpper)
-                        radius: height / 2
-                        color: "#88CCFFFF"
-                        Behavior on width { SmoothedAnimation { velocity: Dims.l(60) } }
-                    }
-
-                    // Lower thrust — grows rightward from pivot
-                    Rectangle {
-                        x: thrustBar.pivotX
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: Math.max(parent.height, (thrustBar.width - thrustBar.pivotX) * thrustLower)
-                        radius: height / 2
-                        color: "#FFFFA0"
-                        Behavior on width { SmoothedAnimation { velocity: Dims.l(120) } }
-                    }
-
-                    // Pivot marker
-                    Rectangle {
-                        x: thrustBar.pivotX - width / 2
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: 2
-                        color: "#66FFFFA0"
-                    }
+                // Main thrust — amber, fills downward from pivot
+                Rectangle {
+                    y: thrustBarV.pivotY
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: Math.max(parent.width, (thrustBarV.height - thrustBarV.pivotY) * thrustLower)
+                    radius: parent.width / 2
+                    color: "#f0ae0e"
+                    Behavior on height { SmoothedAnimation { velocity: Dims.l(120) } }
                 }
-
-                // Tilt — split at centre, fills outward from centre, wiggles with ship angle
-                Item {
-                    id: tiltBar
-                    width: parent.parent.tiltBarW
-                    height: Dims.l(2.4)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    Rectangle { anchors.fill: parent; radius: height / 2; color: "#22FFFFFF" }
-
-                    // Right tilt — grows rightward from centre
-                    Rectangle {
-                        property real fraction: Math.min(1.0, Math.max(0, shipAngle) / physics.maxLandingAngleMax)
-                        anchors.left: parent.horizontalCenter
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: Math.max(height, (tiltBar.width / 2) * fraction)
-                        radius: height / 2
-                        color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
-                        Behavior on width { SmoothedAnimation { velocity: Dims.l(200) } }
-                    }
-                    // Left tilt — grows leftward from centre
-                    Rectangle {
-                        property real fraction: Math.min(1.0, Math.max(0, -shipAngle) / physics.maxLandingAngleMax)
-                        anchors.right: parent.horizontalCenter
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: Math.max(height, (tiltBar.width / 2) * fraction)
-                        radius: height / 2
-                        color: fraction > 0.75 ? "#FF4400" : fraction > 0.4 ? "#FFDD00" : "#AAFFAA"
-                        Behavior on width { SmoothedAnimation { velocity: Dims.l(200) } }
-                    }
+                // Pivot marker
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    y: thrustBarV.pivotY - 1
+                    height: 2
+                    color: "#66f0ae0e"
                 }
             }
 
@@ -1019,6 +1047,7 @@ Application {
         gameOver      = false; playerDying = false; deathProgress = 0.0
         deathAnim.stop(); crashAnimation.stop(); landingAnimation.stop()
         gameTimer.stop(); gameTimer.lastMs = 0; gameTimer.lastVy = 0; elapsedTimer.stop()
+        gForce = 0.0; gForceDisplay = 0.0
         ufoSpawnTimer.stop(); ufoGraceTimer.stop(); ufoActive = false; ufoInGrace = false
         gForce = 0.0
         generateWorld(level)

@@ -47,7 +47,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#CC000000"
+        color: "#AA000000"
         opacity: root.gameOver ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 400 } }
 
@@ -100,6 +100,7 @@ Item {
             anchors.bottomMargin: Dims.l(2)
             width: Dims.l(55)
             model: TouchdownStorage.highestUnlockedLevel
+            verticalLayoutDirection: ListView.BottomToTop
 
             delegate: Item {
                 width: scoresList.width
