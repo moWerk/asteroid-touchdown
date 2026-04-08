@@ -85,14 +85,6 @@ Item {
                 currentValue: "Level " + root.currentLevel
                 onValueChanged: root.levelSelected(parseInt(value.replace("Level ", "")))
             }
-
-            Label {
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: TouchdownStorage.bestTime(root.currentLevel) > 0
-                text: "Best: " + root.formatTime(TouchdownStorage.bestTime(root.currentLevel))
-                font.pixelSize: Dims.l(6)
-                opacity: 0.7
-            }
         }
     }
 

@@ -35,8 +35,11 @@ Item {
     property real targetPadXEnd: 0
 
     signal startLevelRequested(int level)
+    // Tracks which level the player has chosen in the cycler below.
+    property int selectedLevel: currentLevel
 
     visible: gameOver
+    onGameOverChanged: { if (gameOver) selectedLevel = currentLevel }
 
     function formatTime(ms) {
         var s  = Math.floor(ms / 1000)
@@ -134,19 +137,27 @@ Item {
             anchors.bottomMargin: Dims.l(6)
             spacing: Dims.l(3)
 
-            Rectangle {
-                width: Dims.l(38); height: Dims.l(12); radius: height / 2
-                color: "#55FFFFFF"
-                Label { anchors.centerIn: parent; text: "RETRY L" + root.currentLevel; font.pixelSize: Dims.l(5) }
-                MouseArea { anchors.fill: parent; onClicked: root.startLevelRequested(root.currentLevel) }
+            // Level select cycler — mirrors the start page, all unlocked levels available
+            ValueCycler {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Dims.l(64)
+                height: Dims.l(14)
+                valueArray: {
+                    var arr = []
+                    for (var i = 1; i <= TouchdownStorage.highestUnlockedLevel; i++) arr.push("Level " + i)
+                    return arr
+                }
+                currentValue: "Level " + root.selectedLevel
+                onValueChanged: root.selectedLevel = parseInt(value.replace("Level ", ""))
             }
 
+            // Single launch button — starts whichever level the cycler shows
             Rectangle {
-                visible: TouchdownStorage.highestUnlockedLevel > root.currentLevel
+                anchors.horizontalCenter: parent.horizontalCenter
                 width: Dims.l(38); height: Dims.l(12); radius: height / 2
-                color: "#33FFFFFF"
-                Label { anchors.centerIn: parent; text: "NEXT L" + TouchdownStorage.highestUnlockedLevel; font.pixelSize: Dims.l(5); opacity: 0.9 }
-                MouseArea { anchors.fill: parent; onClicked: root.startLevelRequested(TouchdownStorage.highestUnlockedLevel) }
+                color: "#55FFFFFF"
+                Label { anchors.centerIn: parent; text: "FLY L" + root.selectedLevel; font.pixelSize: Dims.l(5) }
+                MouseArea { anchors.fill: parent; onClicked: root.startLevelRequested(root.selectedLevel) }
             }
         }
     }
