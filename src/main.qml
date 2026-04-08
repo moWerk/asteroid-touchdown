@@ -91,7 +91,9 @@ Application {
         property real surfaceBottomMargin: Dims.l(24)
         // Zoom locks when fewer than this many world-units remain between ship and floor.
         // Prevents the camera from zooming to infinity on final approach.
-        property real minViewBand: Dims.l(100) * 0.86
+        property real minViewBand: Dims.l(100) * 0.9
+        // Extra pixels added to ship display size at spawn (Y=0). Lerps to 0 at surface.
+        property real shipSpawnSizeBonus: 60
     }
 
     // ── World generation tuning
@@ -184,11 +186,12 @@ Application {
     property real gameplayZoom: (surfaceScreenY - shipScreenY) / Math.max(viewport.minViewBand, world.floorY - shipWorldY)
     // Cinematic zoom — ship fills roughly a third of the screen height.
     property real cinematicZoom: app.height / (viewport.minViewBand * 1.8)
-
-    // Blended values — all rendering uses these, so the whole world moves together.
-    property real zoomScale:        gameplayZoom + cinematicFraction * (cinematicZoom - gameplayZoom)
-    property real cameraShipScreenY: shipScreenY + cinematicFraction * (app.height * 0.5 - shipScreenY)
-
+    property real zoomScale: gameplayZoom + cinematicFraction * (cinematicZoom - gameplayZoom)
+    
+    // During cinematic the anchor shifts so the ship lands at screen centre.
+    // Gameplay always keeps floor at surfaceScreenY — no drift near surface.
+    property real effectiveSurfaceScreenY: surfaceScreenY + cinematicFraction * (app.height * 0.5 + (world.floorY - shipWorldY) * cinematicZoom - surfaceScreenY)
+    
     NumberAnimation on cinematicFraction {
         id: cinematicAnim
         running: false
@@ -206,7 +209,7 @@ Application {
     }
 
     function worldToScreenY(wy) {
-        return cameraShipScreenY + (wy - shipWorldY) * zoomScale
+        return effectiveSurfaceScreenY + (wy - world.floorY) * zoomScale
     }
 
     // ── World generation
@@ -673,8 +676,8 @@ Application {
         // ── Ship
         Item {
             id: shipItem
-            width:  80 * zoomScale
-            height: 80 * zoomScale
+            width:  (80 + viewport.shipSpawnSizeBonus * Math.max(0, 1.0 - shipWorldY / world.floorY)) * zoomScale
+            height: (80 + viewport.shipSpawnSizeBonus * Math.max(0, 1.0 - shipWorldY / world.floorY)) * zoomScale
             x: worldToScreenX(shipWorldX) - width / 2
             y: worldToScreenY(shipWorldY) - height / 2
             rotation: shipAngle
