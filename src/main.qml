@@ -85,10 +85,10 @@ Application {
         property real worldHeight: Dims.l(100) * 3.8
         // Ship is always pinned at this fraction from the top of the screen (0 = top, 1 = bottom).
         // Lower values give more sky above the ship; higher values expose more ground.
-        property real shipVerticalFraction: 0.22
+        property real shipVerticalFraction: 0.20
         // Floor is always pinned this many pixels above the screen bottom edge.
         // Keeps the surface visible and clear of round-screen clipping.
-        property real surfaceBottomMargin: Dims.l(25)
+        property real surfaceBottomMargin: Dims.l(24)
         // Zoom locks when fewer than this many world-units remain between ship and floor.
         // Prevents the camera from zooming to infinity on final approach.
         property real minViewBand: Dims.l(100) * 0.86
@@ -103,7 +103,7 @@ Application {
         // exhausts its attempt budget — increase rockCount * 8 attempts if that happens.
         property int rockCount: 55
         // Median rock radius in world-units. Rocks range from 0.5× (pebbles) to 8× (boulders) via size tiers.
-        property real rockBaseRadius: viewport.worldWidth * 0.008
+        property real rockBaseRadius: viewport.worldWidth * 0.009
         // Vertex perturbation factor (0 = perfect polygon, 1 = maximally jagged). Increases with level.
         property real rockRoughness: 0.84
         // Landing pad width at level 1. Shrinks each level down to a minimum of 2 % of world width.
@@ -793,9 +793,9 @@ Application {
                 id: gForceLabel
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                anchors.topMargin: Dims.l(5)
+                anchors.topMargin: Dims.l(1)
                 text: gForceDisplay.toFixed(1) + "g"
-                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(6); letterSpacing: 0.5 }
+                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(7); letterSpacing: 0.4 }
                 color: "#f0c30e"
                 opacity: 0.9
             }
@@ -837,9 +837,9 @@ Application {
             Item {
                 id: speedBarV
                 width: Dims.l(2.4)
-                height: Dims.l(50)
+                height: Dims.l(42)
                 anchors.left: parent.left
-                anchors.leftMargin: Dims.l(3)
+                anchors.leftMargin: Dims.l(6)
                 anchors.verticalCenter: parent.verticalCenter
                 Rectangle { anchors.fill: parent; radius: width / 2; color: "#22dc2919" }
                 Rectangle {
@@ -935,7 +935,7 @@ Application {
                     verticalAlignment: Text.AlignVCenter
                     text: "PROP  " + Math.round(fuel * 100) + "%"
                     font { family: "Teko"; styleName: "Bold"; pixelSize: Dims.l(4); letterSpacing: 1.4 }
-                    color: fuel > 0.25 ? "#f0ae0e" : fuel > 0.10 ? "#e57c21" : "#dc2919"
+                    color: fuel > 0.25 ? "#f5cb6a" : fuel > 0.10 ? "#eca05a" : "#e84c35"
                     opacity: 0.5
                 }
                 
@@ -959,9 +959,9 @@ Application {
             Item {
                 id: thrustBarV
                 width: Dims.l(2.4)
-                height: Dims.l(50)
+                height: Dims.l(42)
                 anchors.right: parent.right
-                anchors.rightMargin: Dims.l(3)
+                anchors.rightMargin: Dims.l(6)
                 anchors.verticalCenter: parent.verticalCenter
                 readonly property real pivotY: height * physics.upperThrustForce / (physics.lowerThrustForce + physics.upperThrustForce)
                 Rectangle { anchors.fill: parent; radius: width / 2; color: "#22f0ae0e" }
@@ -999,9 +999,9 @@ Application {
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: Dims.l(2)
+                anchors.bottomMargin: Dims.l(1)
                 text: "L" + currentLevel
-                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(7) }
+                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(7); letterSpacing: 0.9 }
                 opacity: 0.8
             }
         }
