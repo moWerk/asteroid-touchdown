@@ -39,7 +39,9 @@ Item {
     property int selectedLevel: currentLevel
 
     visible: gameOver
-    onGameOverChanged: { if (gameOver) selectedLevel = currentLevel }
+    onGameOverChanged: {
+        if (gameOver) selectedLevel = TouchdownStorage.highestUnlockedLevel > root.currentLevel ? TouchdownStorage.highestUnlockedLevel : root.currentLevel
+    }
 
     function formatTime(ms) {
         var s  = Math.floor(ms / 1000)
