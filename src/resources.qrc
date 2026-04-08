@@ -6,6 +6,7 @@
         <file>ValueCycler.qml</file>
         <file>GameOverOverlay.qml</file>
         <file>StartOverlay.qml</file>
+        <file>UfoObstacle.qml</file>
         <file alias="asteroid-touchdown-ship.svg">../assets/asteroid-touchdown-ship.svg</file>
         <file alias="asteroid-touchdown-ship-left-gear.svg">../assets/asteroid-touchdown-ship-left-gear.svg</file>
         <file alias="asteroid-touchdown-ship-right-gear.svg">../assets/asteroid-touchdown-ship-right-gear.svg</file>

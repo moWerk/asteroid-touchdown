@@ -60,6 +60,20 @@ Application {
         // Constant lateral acceleration in units/s² per radian of tilt. Active whenever the ship is angled,
         // independent of thrust. Keeps the ship drifting in the direction it points.
         readonly property real tiltLateralForce: 4.0
+        // UFO — first appears at level 10, speeds up each level after.
+        // ufoBaseSpeed is world-units per second at level 10.
+        // ufoSpeedScale adds this fraction of ufoBaseSpeed per level above 10.
+        readonly property real ufoBaseSpeed: 120.0
+        readonly property real ufoSpeedScale: 0.15
+        // Wobble amplitude in world-units — UFO swings this far above and below player Y.
+        // 6 × ship half-height (40/2 = 20) gives a ~120 unit swing each way.
+        readonly property real ufoWobbleAmplitude: 120.0
+        readonly property real ufoWobbleSpeed: 2.0
+        // Collision radius in world-units — rough half-width of the UFO shape.
+        readonly property real ufoHitRadius: 71.0
+        // Impulse applied to ship vx/vy on UFO contact.
+        readonly property real ufoImpulseX: 60.0
+        readonly property real ufoImpulseY: -40.0
     }
 
     // ── Viewport tuning
@@ -136,6 +150,17 @@ Application {
     property real lateralUpper: 0.0
     // Computed each physics tick — magnitude of vertical acceleration in multiples of in-game gravity.
     property real gForce: 0.0
+
+    // ── UFO state
+    property bool ufoActive:  false
+    property real ufoWorldX:  0.0
+    property real ufoBaseY:   0.0
+    property real ufoPhase:   0.0
+    property real ufoDir:      1.0  // +1 = rightward, -1 = leftward
+    property bool ufoInGrace:  false  // true for 2s after contact — prevents repeated nudges during a pass
+
+    // Derived screen-space Y including sine wobble — read by the visual.
+    property real ufoWorldY: ufoBaseY + Math.sin(ufoPhase) * physics.ufoWobbleAmplitude
 
     // ── Accelerometer baseline
     property real baselineX: 0.0
@@ -316,6 +341,7 @@ Application {
                 elapsedMs        = 0
                 gameTimer.lastMs = 0
                 gameTimer.start()
+                if (currentLevel >= 10) ufoSpawnTimer.start()
                 elapsedTimer.start()
             }
         }
@@ -368,6 +394,38 @@ Application {
             shipWorldX = newX
 
             shipWorldY = shipWorldY + vy * dt
+
+            // ── UFO movement and collision
+            if (ufoActive) {
+                var ufoSpeed = physics.ufoBaseSpeed * (1.0 + Math.max(0, currentLevel - 10) * physics.ufoSpeedScale)
+                ufoBaseY  = shipWorldY
+                ufoWorldX = ufoWorldX + ufoDir * ufoSpeed * dt
+                ufoPhase  = ufoPhase + physics.ufoWobbleSpeed * dt
+
+                // Despawn when UFO has crossed the full world width
+                if (ufoWorldX < -50 || ufoWorldX > viewport.worldWidth + 50) {
+                    ufoActive = false
+                    ufoSpawnTimer.start()
+                }
+
+                // Collision — world-space distance between ship centre and UFO centre
+                if (!ufoInGrace) {
+                    var ufoDx = shipWorldX - ufoWorldX
+                    var ufoDy = shipWorldY - ufoWorldY
+                    // Carousel-wrap the X distance
+                    var ww = viewport.worldWidth
+                    ufoDx = ufoDx - Math.floor((ufoDx + ww / 2) / ww) * ww
+                    if (Math.sqrt(ufoDx * ufoDx + ufoDy * ufoDy) < physics.ufoHitRadius) {
+                        vx = vx + ufoDir * physics.ufoImpulseX
+                        vy = vy + physics.ufoImpulseY
+                        haptic.event = "press"
+                        haptic.play()
+                        ufoInGrace = true
+                        ufoGraceTimer.start()
+                    }
+                }
+            }
+
             if (shipWorldY < 0) { shipWorldY = 0; if (vy < 0) vy = 0 }
 
             // ── Surface contact
@@ -415,6 +473,33 @@ Application {
         interval: 100
         repeat:   true
         onTriggered: elapsedMs += 100
+    }
+
+    // ── UFO spawn — active from level 10 onward, re-arms each time UFO leaves world
+    Timer {
+        id: ufoSpawnTimer
+        interval: 8000
+        repeat: false
+        onTriggered: {
+            if (currentLevel < 10 || !playing) return
+            ufoDir    = Math.random() < 0.5 ? 1.0 : -1.0
+            ufoWorldX = ufoDir > 0 ? -40 : viewport.worldWidth + 40
+            ufoBaseY  = world.floorY * 0.3 + Math.random() * world.floorY * 0.3
+            ufoPhase  = Math.random() * Math.PI * 2
+            ufoInGrace = false
+            ufoActive = true
+            ufoDir    = ufoWorldX < 0 ? 1.0 : -1.0
+            ufoBaseY  = world.floorY * 0.3 + Math.random() * world.floorY * 0.3
+            ufoPhase  = Math.random() * Math.PI * 2
+            ufoActive = true
+        }
+    }
+
+    Timer {
+        id: ufoGraceTimer
+        interval: 2000
+        repeat: false
+        onTriggered: ufoInGrace = false
     }
 
     // ── Landing: tilt ship to upright then show game over
@@ -557,6 +642,14 @@ Application {
                     }
                 }
             }
+        }
+
+        // ── UFO obstacle — teal wireframe, appears level 10+
+        UfoObstacle {
+            visible: ufoActive
+            size: 40 * zoomScale
+            x: worldToScreenX(ufoWorldX) - width / 2
+            y: worldToScreenY(ufoWorldY) - height / 2
         }
 
         // ── Ship
@@ -904,6 +997,7 @@ Application {
         gameOver      = false; playerDying = false; deathProgress = 0.0
         deathAnim.stop(); crashAnimation.stop(); landingAnimation.stop()
         gameTimer.stop(); gameTimer.lastMs = 0; gameTimer.lastVy = 0; elapsedTimer.stop()
+        ufoSpawnTimer.stop(); ufoGraceTimer.stop(); ufoActive = false; ufoInGrace = false
         gForce = 0.0
         generateWorld(level)
         selectingLevel   = false; calibrating = true; calibrationCount = 0
