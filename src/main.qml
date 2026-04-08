@@ -176,24 +176,26 @@ Application {
     // heightmap, so lateral flight over uneven terrain causes zero zoom bumps.
     property real shipScreenY:    app.height * viewport.shipVerticalFraction
     property real surfaceScreenY: app.height - viewport.surfaceBottomMargin
-    property real zoomScale: (surfaceScreenY - shipScreenY) / Math.max(viewport.minViewBand, world.floorY - shipWorldY)
 
-    // currentViewHeight lerps from startViewHeight down to lockViewHeight as
-    // altitude drops from worldHeight to lockAltitude. startViewHeight > worldHeight
-    // guarantees a visible zoom-out at game start.
+    // 0 = gameplay camera, 1 = cinematic (ship centred, closer zoom).
+    // Animated to 1 when comms sequence starts, reset to 0 on new level.
+    property real cinematicFraction: 0.0
 
-    property real currentViewHeight: {
-        if (landed) return viewport.lockViewHeight
-        if (altitude <= viewport.lockAltitude) return viewport.lockViewHeight
-        var t = Math.max(0, Math.min(1.0,
-            (altitude - viewport.lockAltitude) /
-            (viewport.worldHeight - viewport.lockAltitude)))
-        return viewport.lockViewHeight + (viewport.startViewHeight - viewport.lockViewHeight) * t
+    property real gameplayZoom: (surfaceScreenY - shipScreenY) / Math.max(viewport.minViewBand, world.floorY - shipWorldY)
+    // Cinematic zoom — ship fills roughly a third of the screen height.
+    property real cinematicZoom: app.height / (viewport.minViewBand * 1.8)
+
+    // Blended values — all rendering uses these, so the whole world moves together.
+    property real zoomScale:        gameplayZoom + cinematicFraction * (cinematicZoom - gameplayZoom)
+    property real cameraShipScreenY: shipScreenY + cinematicFraction * (app.height * 0.5 - shipScreenY)
+
+    NumberAnimation on cinematicFraction {
+        id: cinematicAnim
+        running: false
+        to: 1.0
+        duration: 1800
+        easing.type: Easing.InOutCubic
     }
-
-    property real shipScreenFraction: 0.20 + Math.min(1.0, shipWorldY / world.floorY) * 0.20
-
-    property real cameraX:   shipWorldX
 
     // World → screen helpers. worldToScreenX handles carousel wrapping.
     function worldToScreenX(wx) {
@@ -204,7 +206,7 @@ Application {
     }
 
     function worldToScreenY(wy) {
-        return surfaceScreenY + (wy - world.floorY) * zoomScale
+        return cameraShipScreenY + (wy - shipWorldY) * zoomScale
     }
 
     // ── World generation
@@ -557,6 +559,8 @@ Application {
         missionMessage = arr[Math.floor(Math.random() * arr.length)]
         showingComms   = true
         commsOpacity   = 0.0
+        cinematicFraction = 0.0
+        cinematicAnim.restart()
         commsSequence.start()
     }
 
@@ -1048,6 +1052,7 @@ Application {
         deathAnim.stop(); crashAnimation.stop(); landingAnimation.stop()
         gameTimer.stop(); gameTimer.lastMs = 0; gameTimer.lastVy = 0; elapsedTimer.stop()
         gForce = 0.0; gForceDisplay = 0.0
+        cinematicAnim.stop(); cinematicFraction = 0.0
         ufoSpawnTimer.stop(); ufoGraceTimer.stop(); ufoActive = false; ufoInGrace = false
         gForce = 0.0
         generateWorld(level)
