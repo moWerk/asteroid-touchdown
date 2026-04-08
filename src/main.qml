@@ -656,8 +656,10 @@ Application {
                         if (world.pads.length === 0) return []
                         var sx = worldToScreenX(world.targetPadXStart)
                         var ex = worldToScreenX(world.targetPadXEnd)
-                        // Cull when pad is entirely off-screen
+                        // Cull when pad is entirely off-screen or has wrapped across the seam
+                        // relative to the camera — the latter causes a full-width stray line.
                         if (ex < -app.width || sx > app.width * 2) return []
+                        if (ex < sx) return []
                         var sy = worldToScreenY(world.floorY)
                         return [Qt.point(sx, sy), Qt.point(ex, sy)]
                     }
