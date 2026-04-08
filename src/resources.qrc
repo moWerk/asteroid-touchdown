@@ -10,6 +10,7 @@
         <file alias="asteroid-touchdown-ship.svg">../assets/asteroid-touchdown-ship.svg</file>
         <file alias="asteroid-touchdown-ship-left-gear.svg">../assets/asteroid-touchdown-ship-left-gear.svg</file>
         <file alias="asteroid-touchdown-ship-right-gear.svg">../assets/asteroid-touchdown-ship-right-gear.svg</file>
-        <file alias="asteroid-touchdown-thruster.svg">../assets/asteroid-touchdown-thruster.svg</file>
+		<file alias="asteroid-touchdown-thruster.svg">../assets/asteroid-touchdown-thruster.svg</file>
+        <file alias="asteroid-touchdown-thruster-rcs.svg">../assets/asteroid-touchdown-thruster-rcs.svg</file>
     </qresource>
 </RCC>

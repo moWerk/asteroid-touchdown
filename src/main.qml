@@ -689,13 +689,13 @@ Application {
             // Upper-left thruster
             Image {
                 id: thrusterUpperLeft
-                anchors.horizontalCenter:       parent.horizontalCenter
+                anchors.horizontalCenter: parent.horizontalCenter
                 anchors.horizontalCenterOffset: -shipItem.height * 0.22
-                anchors.verticalCenter:         parent.verticalCenter
-                anchors.verticalCenterOffset:   -shipItem.height * 0.02
-                width:  parent.width * 0.2
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: -shipItem.height * 0.02
+                width: parent.width * 0.2
                 height: shipItem.height * 0.5 * Math.max(0.05, thrustUpper)
-                source: "asteroid-touchdown-thruster.svg"
+                source: "asteroid-touchdown-thruster-rcs.svg"
                 smooth: true
                 mirror: true
                 rotation: 135
@@ -707,13 +707,13 @@ Application {
             // Upper-right thruster
             Image {
                 id: thrusterUpperRight
-                anchors.horizontalCenter:       parent.horizontalCenter
+                anchors.horizontalCenter: parent.horizontalCenter
                 anchors.horizontalCenterOffset: shipItem.height * 0.22
-                anchors.verticalCenter:         parent.verticalCenter
-                anchors.verticalCenterOffset:   -shipItem.height * 0.02
-                width:  parent.width * 0.2
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: -shipItem.height * 0.02
+                width: parent.width * 0.2
                 height: shipItem.height * 0.5 * Math.max(0.05, thrustUpper)
-                source: "asteroid-touchdown-thruster.svg"
+                source: "asteroid-touchdown-thruster-rcs.svg"
                 smooth: true
                 rotation: -135
                 transformOrigin: Item.Top
@@ -770,16 +770,34 @@ Application {
             anchors.fill: parent
             visible: playing
 
-            // ── Altitude — left edge
+            // Chord widths make the three bars follow the round screen edge naturally.
+            // Each width = 82% of the actual screen chord at that bar's vertical midpoint.
+            readonly property real screenR: app.width / 2
+            readonly property real speedBarW:  2 * Math.sqrt(Math.max(0, screenR*screenR - Math.pow(screenR - Dims.l(7.2),  2))) * 0.82
+            readonly property real thrustBarW: 2 * Math.sqrt(Math.max(0, screenR*screenR - Math.pow(screenR - Dims.l(10.6), 2))) * 0.82
+            readonly property real tiltBarW:   2 * Math.sqrt(Math.max(0, screenR*screenR - Math.pow(screenR - Dims.l(14.0), 2))) * 0.82
+
+            // G-force — Xolonium Bold, bottom aligned to speedBar, floats into top margin
+            Label {
+                id: gForceLabel
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: speedBar.bottom
+                text: gForce.toFixed(1) + "g"
+                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(7) }
+                color: "#f0c30e"
+                opacity: 0.9
+            }
+
+            // ── Altitude — left edge, AGL = Above Ground Level
             Item {
                 id: altBar
                 anchors.left: parent.left
-                anchors.leftMargin: Dims.l(6)
+                anchors.leftMargin: Dims.l(4)
                 anchors.top: parent.top
                 anchors.topMargin: Dims.l(28)
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: Dims.l(28)
-                width: Dims.l(3)
+                width: Dims.l(5)
                 Rectangle { anchors.fill: parent; radius: width / 2; color: "#3300FFFF"; opacity: 0.3 }
                 Rectangle {
                     property real fraction: Math.min(1.0, Math.max(0, world.floorY - shipWorldY) / world.floorY)
@@ -792,51 +810,55 @@ Application {
                     opacity: 0.4
                     Behavior on height { SmoothedAnimation { velocity: Dims.l(40) } }
                 }
+                Label {
+                    rotation: -90
+                    transformOrigin: Item.Center
+                    anchors.centerIn: parent
+                    width: parent.height
+                    height: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    text: "AGL  " + Math.round(Math.max(0, world.floorY - shipWorldY)) + "m"
+                    font { family: "Teko"; styleName: "Bold"; pixelSize: Dims.l(3.5); letterSpacing: 1.5 }
+                    color: "#00FFFF"
+                    opacity: 0.5
+                }
             }
 
-            // Altitude readout
-            Label {
-                id: altitudeLabel
-                anchors.left: altBar.right
-                anchors.verticalCenter: altBar.verticalCenter
-                anchors.leftMargin: Dims.l(4)
-                text: Math.round(Math.max(0, world.floorY - shipWorldY)) + "m"
-                font { pixelSize: Dims.l(6); family: "Noto Sans"; styleName: "Condensed Medium" }
-                opacity: 0.9
-            }
-
-            // ── Fuel — right edge
+            // ── Fuel — right edge, PROP = propellant (rocket terminology)
             Item {
                 id: fuelBar
                 anchors.right: parent.right
-                anchors.rightMargin: Dims.l(6)
+                anchors.rightMargin: Dims.l(4)
                 anchors.top: parent.top
                 anchors.topMargin: Dims.l(28)
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: Dims.l(28)
-                width: Dims.l(3)
-                Rectangle { anchors.fill: parent; radius: width / 2; color: "#33FFFFFF"; opacity: 0.3 }
+                width: Dims.l(5)
+                Rectangle { anchors.fill: parent; radius: width / 2; color: "#33f0ae0e"; opacity: 0.3 }
                 Rectangle {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
                     height: Math.max(width, parent.height * fuel)
                     radius: width / 2
-                    color: fuel > 0.25 ? "#FFFFFF" : fuel > 0.10 ? "#FFDD00" : "#FF4400"
-                    opacity: 0.3
+                    color: fuel > 0.25 ? "#f0ae0e" : fuel > 0.10 ? "#e57c21" : "#dc2919"
+                    opacity: 0.4
                     Behavior on height { SmoothedAnimation { velocity: Dims.l(60) } }
                 }
-            }
-
-            // G-force readout
-            Label {
-                id: gForceLabel
-                anchors.right: fuelBar.left
-                anchors.verticalCenter: fuelBar.verticalCenter
-                anchors.rightMargin: Dims.l(4)
-                text: gForce.toFixed(1) + "g"
-                font { pixelSize: Dims.l(6); family: "Noto Sans"; styleName: "Condensed Bold" }
-                opacity: 0.9
+                Label {
+                    rotation: -90
+                    transformOrigin: Item.Center
+                    anchors.centerIn: parent
+                    width: parent.height
+                    height: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    text: "PROP  " + Math.round(fuel * 100) + "%"
+                    font { family: "Teko"; styleName: "Bold"; pixelSize: Dims.l(3.5); letterSpacing: 1.5 }
+                    color: fuel > 0.25 ? "#f0ae0e" : fuel > 0.10 ? "#e57c21" : "#dc2919"
+                    opacity: 0.5
+                }
             }
 
             // ── Action column — speed danger, thrust, tilt top-to-bottom
@@ -849,7 +871,7 @@ Application {
                 // Speed danger — most decisive landing indicator, fills rightward green → red
                 Item {
                     id: speedBar
-                    width: Dims.l(40)
+                    width: parent.parent.speedBarW
                     height: Dims.l(2.4)
                     anchors.horizontalCenter: parent.horizontalCenter
                     Rectangle { anchors.fill: parent; radius: height / 2; color: "#22FFFFFF" }
@@ -869,7 +891,7 @@ Application {
                 // Pivot position reflects the force ratio so each side is to scale.
                 Item {
                     id: thrustBar
-                    width: Dims.l(43)
+                    width: parent.parent.thrustBarW
                     height: Dims.l(2.4)
                     anchors.horizontalCenter: parent.horizontalCenter
                     readonly property real pivotX: width * physics.upperThrustForce / (physics.lowerThrustForce + physics.upperThrustForce)
@@ -911,7 +933,7 @@ Application {
                 // Tilt — split at centre, fills outward from centre, wiggles with ship angle
                 Item {
                     id: tiltBar
-                    width: Dims.l(46)
+                    width: parent.parent.tiltBarW
                     height: Dims.l(2.4)
                     anchors.horizontalCenter: parent.horizontalCenter
                     Rectangle { anchors.fill: parent; radius: height / 2; color: "#22FFFFFF" }
