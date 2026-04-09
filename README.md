@@ -2,6 +2,8 @@
 
 A precision lunar lander game for [AsteroidOS](https://asteroidos.org). Tilt your watch to thrust, hold steady to descend, and land on the pad — or at least try not to become a crater.
 
+![shot-touchdown4](https://github.com/user-attachments/assets/52617dbf-ef6e-4754-9a88-f69f878d87f0)
+
 ---
 
 ## Gameplay
@@ -11,6 +13,8 @@ Your ship spawns above a procedurally generated rocky surface. Tilt the watch to
 The goal is to touch down with a low enough vertical speed and a shallow enough angle. Landing on the yellow target pad advances you to the next level. Landing anywhere else on the surface is a valid (if humbling) touchdown that saves your time but does not unlock the next level.
 
 Crash into a rock or hit the surface too fast or too tilted and the mission ends.
+
+![shot-touchdown3](https://github.com/user-attachments/assets/306cae85-cce0-453f-b002-b7f517cc5006)
 
 From level 10 onward a UFO appears. It tracks your altitude with sinusoidal enthusiasm and will nudge your ship off course if it makes contact. It does not stop coming.
 
@@ -22,15 +26,21 @@ Touchdown uses only the accelerometer — there are no buttons.
 
 **Calibration:** when you press ENTER ORBIT the game counts down three seconds. Hold the watch at the angle you intend to play at. That pose becomes your neutral position. Tilting away from neutral in any direction produces thrust or lateral movement. If you calibrate at an extreme angle (wrist fully raised, face toward you) the available thrust range will be compressed — calibrate at a comfortable, natural playing angle.
 
+![shot-touchdown7](https://github.com/user-attachments/assets/dbf77609-53d1-4de2-91d3-8089791a93a6)
+
 **Main engine:** tilt the watch face toward you (raise the bottom edge). The further you tilt the more thrust. Fuel cuts when propellant is exhausted.
 
 **Retro thrusters:** tilt the watch face away from you (lower the bottom edge). Useful for braking on final approach and reducing g-load.
+
+![shot-touchdown8](https://github.com/user-attachments/assets/255c47d2-a527-45e7-8029-6eb31f3ba8cd)
 
 **Lateral movement:** lean the watch left or right. The ship drifts in the direction it points. The tilt bar at the top of the HUD shows how far you are from a safe landing angle.
 
 ---
 
 ## HUD
+
+![shot-touchdown2](https://github.com/user-attachments/assets/f1b19ab6-0946-4e30-a09d-b236e8fbd280)
 
 All indicators are visible during flight and fade in during the calibration countdown so you can orient yourself before the game starts.
 
@@ -56,7 +66,11 @@ Each level completed records a best time. Lower is better.
 
 Landing on the target pad unlocks the next level. Landing off-pad saves a best time but does not advance progression.
 
+![shot-touchdown6](https://github.com/user-attachments/assets/6f021177-4c98-46c3-a176-0283b9ab84ca)
+
 **Combo system:** landing successfully on successive levels without crashing builds a combo stash. The stash accumulates your run scores — each run scores 0 to 1000 points based on time (faster is better, ceiling one minute) and propellant remaining. The stash persists after closing the app. To continue a chain, you must play the next level in sequence — the start screen and game over screen both highlight the continuation level in gold and show a COMBO STREAK button when your stash is active.
+
+![shot-touchdown5](https://github.com/user-attachments/assets/6254a51c-4dc9-4c2e-a3d6-defcf5f4d119)
 
 Crashing while a combo is active saves the stash to your all-time combo high score if it is a new record. The combo high score appears at the top of the game over scores list.
 
