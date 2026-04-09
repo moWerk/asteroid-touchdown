@@ -703,6 +703,14 @@ Application {
             }
         }
 
+        // ── UFO obstacle — teal wireframe, appears level 10+
+        UfoObstacle {
+            visible: ufoActive
+            size: 40 * zoomScale
+            x: worldToScreenX(ufoWorldX) - width / 2
+            y: worldToScreenY(ufoWorldY) - height / 2
+        }
+
         // ── Rocks — one Shape per rock, each fully self-contained
         // No world-spanning polyline = zero stray lines by construction.
         Repeater {
@@ -763,14 +771,6 @@ Application {
                     }
                 }
             }
-        }
-
-        // ── UFO obstacle — teal wireframe, appears level 10+
-        UfoObstacle {
-            visible: ufoActive
-            size: 40 * zoomScale
-            x: worldToScreenX(ufoWorldX) - width / 2
-            y: worldToScreenY(ufoWorldY) - height / 2
         }
 
         // ── Ship
@@ -1197,6 +1197,8 @@ Application {
                 calibrationTimer.start()
             }
             onLevelSelected: app.currentLevel = level
+            nextComboLevel: TouchdownStorage.nextComboLevel
+            comboStash: TouchdownStorage.comboStash
         }
 
         GameOverOverlay {

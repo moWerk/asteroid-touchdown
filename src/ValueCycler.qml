@@ -30,12 +30,14 @@ Item {
 
     property var    valueArray:   []
     property string currentValue: valueArray.length > 0 ? valueArray[0] : ""
+    property color  labelColor:   "#FFFFFF"
 
     signal valueChanged(string value)
 
     Label {
         anchors.centerIn: parent
         text: currentValue
+        color: root.labelColor
         font.pixelSize: Dims.l(10)
         horizontalAlignment: Text.AlignHCenter
     }

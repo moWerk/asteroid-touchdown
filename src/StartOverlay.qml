@@ -92,6 +92,7 @@ Item {
                     return arr
                 }
                 currentValue: "Level " + root.currentLevel
+                labelColor: root.comboEligible ? "#f0c30e" : "#FFFFFF"
                 onValueChanged: root.levelSelected(parseInt(value.replace("Level ", "")))
             }
         }
