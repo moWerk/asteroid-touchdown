@@ -134,7 +134,9 @@ Application {
     property bool   playerDying:        false
     property real   deathProgress:      0.0
     property string crashSide:          "left"
-    property string missionMessage: ""
+    property string missionMessage:      ""
+    property string comboCommsMessage:   ""
+    property bool   showingComboComms:   false
     property bool   showingComms:   false
     property real   commsOpacity:   0.0
     
@@ -154,6 +156,15 @@ Application {
     property real gForce: 0.0
     // Filtered display value — updated every 250ms to keep the readout readable.
     property real gForceDisplay: 0.0
+
+    // runScore holds the score earned in the current run, computed at landing.
+    // comboStash, comboChainLength and nextComboLevel are persisted in TouchdownStorage
+    // so a combo chain survives app close and can be continued on relaunch.
+    property int runScore: 0
+
+    function computeRunScore() {
+        return Math.round((1.0 - Math.min(1.0, elapsedMs / 60000)) * 500 + fuel * 500)
+    }
 
     // ── UFO state
     property bool ufoActive:  false
@@ -454,17 +465,26 @@ Application {
                     var angleOk = contactAngle <= physics.maxLandingAngleMax
                     if (speedOk && angleOk) {
                         landed = true
+                        runScore = computeRunScore()
+                        var newChain = TouchdownStorage.comboChainLength + 1
+                        var newStash = TouchdownStorage.comboStash > 0 ? TouchdownStorage.comboStash + runScore : runScore
+                        TouchdownStorage.comboChainLength = newChain
+                        TouchdownStorage.comboStash       = newStash
+                        TouchdownStorage.nextComboLevel   = currentLevel + 1
                         TouchdownStorage.setBestTime(currentLevel, elapsedMs)
                         if (shipWorldX >= world.targetPadXStart - 20 && shipWorldX <= world.targetPadXEnd + 20) {
                             TouchdownStorage.highestUnlockedLevel = currentLevel + 1
                         }
                         landingAnimation.start()
                     } else {
-                        crashed       = true
-                        crashSide     = vx >= 0 ? "right" : "left"
-                        playerDying   = true
+                        crashed = true
+                        TouchdownStorage.comboStash = 0
+                        TouchdownStorage.comboChainLength = 0
+                        TouchdownStorage.nextComboLevel = 0
+                        crashSide = vx >= 0 ? "right" : "left"
+                        playerDying = true
                         deathProgress = 0.0
-                        haptic.event  = "notif_strong"
+                        haptic.event = "notif_strong"
                         haptic.play()
                         crashAnimation.start()
                         deathAnim.start()
@@ -540,6 +560,40 @@ Application {
         onStopped: { playerDying = false; showComms() }
     }
 
+    // ── Combo flash — plays after comms when a combo is active, then triggers gameOver
+    property real comboFlashScale:   0.05
+    property real comboFlashOpacity: 0.0
+
+    SequentialAnimation {
+        id: comboFlash
+        ParallelAnimation {
+            NumberAnimation { target: app; property: "comboFlashScale";   from: 0.05; to: 1.0;  duration: 450; easing.type: Easing.OutCubic }
+            NumberAnimation { target: app; property: "comboFlashOpacity"; from: 0.0;  to: 1.0;  duration: 200 }
+        }
+        PauseAnimation { duration: 180 }
+        NumberAnimation { target: app; property: "comboFlashOpacity"; to: 0.0; duration: 350; easing.type: Easing.InCubic }
+        PauseAnimation { duration: 1 }
+        ScriptAction { script: { gameOver = true } }
+    }
+
+    SequentialAnimation {
+        id: comboCommsSequence
+        NumberAnimation { target: app; property: "commsOpacity"; to: 1.0; duration: 400 }
+        PauseAnimation  { duration: 2500 }
+        NumberAnimation { target: app; property: "commsOpacity"; to: 0.0; duration: 400 }
+        ScriptAction {
+            script: {
+                showingComms      = false
+                showingComboComms = false
+                if (landed && TouchdownStorage.comboChainLength >= 2) {
+                    comboFlash.start()
+                } else {
+                    gameOver = true
+                }
+            }
+        }
+    }
+
     // ── Haptics
     NonGraphicalFeedback { id: haptic; event: "press" }
 
@@ -548,23 +602,65 @@ Application {
         NumberAnimation { target: app; property: "commsOpacity"; to: 1.0; duration: 400 }
         PauseAnimation  { duration: 3000 }
         NumberAnimation { target: app; property: "commsOpacity"; to: 0.0; duration: 400 }
-        ScriptAction    { script: { showingComms = false; gameOver = true } }
+        ScriptAction {
+            script: {
+                showingComms = false
+                comboCommsMessage = buildComboMessage()
+                if (comboCommsMessage !== "") {
+                    showingComboComms = true
+                    missionMessage    = comboCommsMessage
+                    commsOpacity      = 0.0
+                    showingComms      = true
+                    comboCommsSequence.start()
+                } else {
+                    gameOver = true
+                }
+            }
+        }
     }
 
     function showComms() {
-        var arr
-        if (landed) {
-            var onPad = (shipWorldX >= world.targetPadXStart - 20 && shipWorldX <= world.targetPadXEnd + 20)
-            arr = onPad ? comms.pad : comms.win
-        } else {
-            arr = comms.lose
-        }
+        var onPad = landed && (shipWorldX >= world.targetPadXStart - 20 && shipWorldX <= world.targetPadXEnd + 20)
+        var arr = landed ? (onPad ? comms.pad : comms.win) : comms.lose
         missionMessage = arr[Math.floor(Math.random() * arr.length)]
         showingComms   = true
         commsOpacity   = 0.0
-        cinematicFraction = 0.0
-        cinematicAnim.restart()
         commsSequence.start()
+    }
+
+    function buildComboMessage() {
+        var chainLen = TouchdownStorage.comboChainLength
+        var stash    = TouchdownStorage.comboStash
+        var arr
+        if (landed) {
+            if (chainLen >= 2) {
+                // Always try to save — C++ guard handles the high score check
+                TouchdownStorage.submitCombo(stash)
+                if (stash > TouchdownStorage.comboHighScore) {
+                    arr = comms.comboRecord
+                } else {
+                    arr = comms.comboChain
+                }
+            } else {
+                arr = comms.comboStart
+            }
+        } else {
+            if (chainLen >= 2 && stash > 0) {
+                TouchdownStorage.submitCombo(stash)
+                arr = stash > TouchdownStorage.comboHighScore ? comms.comboRecord : comms.comboBroken
+                TouchdownStorage.comboStash       = 0
+                TouchdownStorage.comboChainLength = 0
+                TouchdownStorage.nextComboLevel   = 0
+            } else {
+                TouchdownStorage.comboStash       = 0
+                TouchdownStorage.comboChainLength = 0
+                TouchdownStorage.nextComboLevel   = 0
+                arr = comms.lose
+            }
+        }
+        if (!arr) return ""
+        var msg = arr[Math.floor(Math.random() * arr.length)]
+        return msg.replace("{score}", stash > 0 ? stash : runScore)
     }
 
     // ── Visual root
@@ -763,6 +859,28 @@ Application {
             ringColor:     "#FF4400"
         }
 
+        // ── Combo flash — centred, scales from ship to screen width
+        Item {
+            anchors.centerIn: parent
+            visible: comboFlashOpacity > 0
+            opacity: comboFlashOpacity
+            scale:   comboFlashScale
+            Label {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.verticalCenter
+                text: "COMBO"
+                font { family: "Barlow"; styleName: "Bold"; pixelSize: Dims.l(22) }
+                color: "#f0c30e"
+            }
+            Label {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.verticalCenter
+                text: "ACHIEVED"
+                font { family: "Barlow"; styleName: "Bold"; pixelSize: Dims.l(14) }
+                color: "#f0ae0e"
+            }
+        }
+
         // ── Houston comms message
         Rectangle {
             anchors.fill: parent
@@ -789,6 +907,7 @@ Application {
                 anchors.fill: parent
                 onClicked: {
                     commsSequence.stop()
+                    comboCommsSequence.stop()
                     showingComms  = false
                     commsOpacity  = 0.0
                     gameOver      = true
@@ -1016,8 +1135,19 @@ Application {
                 }
             }
 
+            Label {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: levelLabel.top
+                visible: TouchdownStorage.comboStash > 0
+                text: TouchdownStorage.comboStash
+                font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(5) }
+                color: "#f0c30e"
+                opacity: 0.9
+            }
+
             // Level — centre bottom
             Label {
+                id: levelLabel
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: Dims.l(1)
@@ -1064,6 +1194,12 @@ Application {
     // ── Game flow
 
     function startLevel(level) {
+        // Break combo chain if player deliberately starts a level other than the continuation level
+        if (TouchdownStorage.nextComboLevel > 0 && level !== TouchdownStorage.nextComboLevel) {
+            TouchdownStorage.comboStash       = 0
+            TouchdownStorage.comboChainLength = 0
+            TouchdownStorage.nextComboLevel   = 0
+        }
         currentLevel  = level
         shipWorldX    = viewport.worldWidth / 2
         shipWorldY    = 0.0
@@ -1075,6 +1211,9 @@ Application {
         deathAnim.stop(); crashAnimation.stop(); landingAnimation.stop()
         gameTimer.stop(); gameTimer.lastMs = 0; gameTimer.lastVy = 0; elapsedTimer.stop()
         gForce = 0.0; gForceDisplay = 0.0
+        comboFlash.stop(); comboFlashScale = 0.05; comboFlashOpacity = 0.0
+        comboCommsSequence.stop(); showingComboComms = false
+        runScore = 0
         cinematicAnim.stop(); cinematicFraction = 0.0
         ufoSpawnTimer.stop(); ufoGraceTimer.stop(); ufoActive = false; ufoInGrace = false
         gForce = 0.0
@@ -1090,7 +1229,8 @@ Application {
 
     Component.onCompleted: {
         DisplayBlanking.preventBlanking = keepAwake
-        currentLevel = TouchdownStorage.highestUnlockedLevel
+        // Preselect combo continuation level if an active chain exists
+        currentLevel = TouchdownStorage.nextComboLevel > 0 ? TouchdownStorage.nextComboLevel : TouchdownStorage.highestUnlockedLevel
         selectingLevel = true
     }
 }

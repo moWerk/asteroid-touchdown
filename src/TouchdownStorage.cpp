@@ -46,7 +46,7 @@ QObject *TouchdownStorage::qmlInstance(QQmlEngine *, QJSEngine *)
     return instance();
 }
 
-// ── Highest unlocked level ────────────────────────────────────────────────────
+// ── Highest unlocked level
 
 int TouchdownStorage::highestUnlockedLevel() const
 {
@@ -61,7 +61,7 @@ void TouchdownStorage::setHighestUnlockedLevel(int v)
     emit highestUnlockedLevelChanged();
 }
 
-// ── Per-level best time ───────────────────────────────────────────────────────
+// ── Per-level best time
 // Key format: "level<N>/bestTime"  — QSettings treats / as group separator.
 // Returns 0 when no time recorded yet (0 = no entry, not a valid time).
 
@@ -82,7 +82,65 @@ void TouchdownStorage::setBestTime(int level, int ms)
     m_settings.sync();
 }
 
-// ── Utility ───────────────────────────────────────────────────────────────────
+// ── Combo high score
+// comboHighScore is the best ever combo total across all sessions.
+// submitCombo() replaces it only when the new value is strictly higher.
+
+int TouchdownStorage::comboHighScore() const
+{
+    return m_settings.value(QStringLiteral("comboHighScore"), 0).toInt();
+}
+
+void TouchdownStorage::submitCombo(int score)
+{
+    if (score <= 0 || score <= comboHighScore()) return;
+    m_settings.setValue(QStringLiteral("comboHighScore"), score);
+    m_settings.sync();
+    emit comboHighScoreChanged();
+}
+
+// ── Combo persistent state
+
+int TouchdownStorage::comboStash() const
+{
+    return m_settings.value(QStringLiteral("comboStash"), 0).toInt();
+}
+
+void TouchdownStorage::setComboStash(int v)
+{
+    if (v == comboStash()) return;
+    m_settings.setValue(QStringLiteral("comboStash"), v);
+    m_settings.sync();
+    emit comboStashChanged();
+}
+
+int TouchdownStorage::comboChainLength() const
+{
+    return m_settings.value(QStringLiteral("comboChainLength"), 0).toInt();
+}
+
+void TouchdownStorage::setComboChainLength(int v)
+{
+    if (v == comboChainLength()) return;
+    m_settings.setValue(QStringLiteral("comboChainLength"), v);
+    m_settings.sync();
+    emit comboChainLengthChanged();
+}
+
+int TouchdownStorage::nextComboLevel() const
+{
+    return m_settings.value(QStringLiteral("nextComboLevel"), 0).toInt();
+}
+
+void TouchdownStorage::setNextComboLevel(int v)
+{
+    if (v == nextComboLevel()) return;
+    m_settings.setValue(QStringLiteral("nextComboLevel"), v);
+    m_settings.sync();
+    emit nextComboLevelChanged();
+}
+
+// ── Utility
 
 QString TouchdownStorage::fileName() const
 {

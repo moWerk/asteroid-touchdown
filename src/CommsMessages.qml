@@ -76,6 +76,47 @@ QtObject {
         "That will buff right out."
     ]
 
+    // score is injected by main.qml as a template token — replace {score} before display.
+    readonly property var comboStart: [
+        "Nice landing. Go again for combo.",
+        "Landed. Chain it for a combo score.",
+        "One down. Land again to start combo.",
+        "Good approach. Keep the streak alive.",
+        "Landed safely. One more for combo."
+    ]
+
+    readonly property var combo: [
+        "Combo started. Stash: {score}.",
+        "Chain is live. Bank: {score}.",
+        "Sequential landing. Stash: {score}.",
+        "Two in a row. Carrying {score}.",
+        "Combo building. Current stash: {score}."
+    ]
+
+    readonly property var comboChain: [
+        "Chain grows. Stash now {score}.",
+        "Combo extends. Bank: {score}.",
+        "Still going. Stash: {score}.",
+        "Unbroken streak. Carrying {score}.",
+        "Consecutive landings. Stash: {score}."
+    ]
+
+    readonly property var comboBroken: [
+        "Chain broken. {score} saved to record.",
+        "Streak ended. {score} added to record.",
+        "Combo banked at {score}. Start again.",
+        "Run complete. Record updated: {score}.",
+        "Landing streak closed at {score}."
+    ]
+
+    readonly property var comboRecord: [
+        "New combo record: {score}. Outstanding.",
+        "Personal best combo: {score}. Logged.",
+        "Record combo {score} achieved. Noted.",
+        "Combo highscore: {score}. Well done pilot.",
+        "New all-time combo: {score}."
+    ]
+
     readonly property var pad: [
         "Bullseye landing on the pad.",
         "Precision approach executed with style.",

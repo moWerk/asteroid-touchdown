@@ -40,7 +40,10 @@ Item {
 
     visible: gameOver
     onGameOverChanged: {
-        if (gameOver) selectedLevel = TouchdownStorage.highestUnlockedLevel > root.currentLevel ? TouchdownStorage.highestUnlockedLevel : root.currentLevel
+        if (gameOver) {
+            var next = root.currentLevel + 1
+            selectedLevel = next <= TouchdownStorage.highestUnlockedLevel ? next : root.currentLevel
+        }
     }
 
     function formatTime(ms) {
@@ -95,12 +98,40 @@ Item {
             }
         }
 
+        // Combo high score — anchored above scoresList, not floating
+        Item {
+            id: comboRow
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: gameOverTop.bottom
+            anchors.topMargin: Dims.l(4)
+            width: Dims.l(55)
+            height: TouchdownStorage.comboHighScore > 0 ? Dims.l(8) : 0
+            visible: TouchdownStorage.comboHighScore > 0
+
+            Label {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                text: "COMBO"
+                font.pixelSize: Dims.l(4.5)
+                color: "#f0c30e"
+                opacity: 0.9
+            }
+            Label {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: TouchdownStorage.comboHighScore
+                font.pixelSize: Dims.l(4.5)
+                color: "#f0c30e"
+                opacity: 0.9
+            }
+        }
+
         // Per-level best times
         ListView {
             id: scoresList
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: gameOverTop.bottom
-            anchors.topMargin: Dims.l(4)
+            anchors.top: comboRow.bottom
+            anchors.topMargin: 0
             anchors.bottom: buttonsColumn.top
             anchors.bottomMargin: Dims.l(2)
             width: Dims.l(55)

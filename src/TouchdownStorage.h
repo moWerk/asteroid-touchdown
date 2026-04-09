@@ -28,6 +28,10 @@ class TouchdownStorage : public QObject
     Q_OBJECT
 
     Q_PROPERTY(int highestUnlockedLevel READ highestUnlockedLevel WRITE setHighestUnlockedLevel NOTIFY highestUnlockedLevelChanged)
+    Q_PROPERTY(int comboHighScore    READ comboHighScore    NOTIFY comboHighScoreChanged)
+    Q_PROPERTY(int comboStash        READ comboStash        WRITE setComboStash        NOTIFY comboStashChanged)
+    Q_PROPERTY(int comboChainLength  READ comboChainLength  WRITE setComboChainLength  NOTIFY comboChainLengthChanged)
+    Q_PROPERTY(int nextComboLevel    READ nextComboLevel    WRITE setNextComboLevel    NOTIFY nextComboLevelChanged)
 
 public:
     explicit TouchdownStorage(QObject *parent = nullptr);
@@ -43,8 +47,25 @@ public:
 
     Q_INVOKABLE QString fileName() const;
 
+    int comboHighScore() const;
+    Q_INVOKABLE void submitCombo(int score);
+
+    int comboStash() const;
+    void setComboStash(int v);
+
+    int comboChainLength() const;
+    void setComboChainLength(int v);
+
+    // Level the player must play next to continue their combo chain. 0 = no active chain.
+    int nextComboLevel() const;
+    void setNextComboLevel(int v);
+
 signals:
     void highestUnlockedLevelChanged();
+    void comboHighScoreChanged();
+    void comboStashChanged();
+    void comboChainLengthChanged();
+    void nextComboLevelChanged();
 
 private:
     QSettings m_settings;

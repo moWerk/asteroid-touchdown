@@ -27,6 +27,10 @@ Item {
     property bool selectingLevel: true
     property bool calibrating: false
     property int  currentLevel: 1
+    property int  nextComboLevel:  0
+    property int  comboStash:      0
+
+    readonly property bool comboEligible: comboStash > 0 && nextComboLevel > 0 && currentLevel === nextComboLevel
     property int  calibrationSeconds: 3
     property int  calibrationCount: 0
 
@@ -65,8 +69,13 @@ Item {
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Dims.l(64); height: Dims.l(20); radius: height / 2
-                color: "#55FFFFFF"
-                Label { anchors.centerIn: parent; text: "ENTER ORBIT"; font.pixelSize: Dims.l(8) }
+                color: root.comboEligible ? "#44f0ae0e" : "#55FFFFFF"
+                Label {
+                    anchors.centerIn: parent
+                    text: root.comboEligible ? "COMBO STREAK" : "ENTER ORBIT"
+                    font.pixelSize: Dims.l(8)
+                    color: root.comboEligible ? "#f0c30e" : "#FFFFFF"
+                }
                 MouseArea {
                     anchors.fill: parent
                     onClicked: { calibBgFade.restart(); root.launchRequested(root.currentLevel) }
