@@ -112,6 +112,18 @@ Item {
         }
     }
 
+    // "Hold still" hint — sibling so it ignores the fading rect's opacity.
+    // Snaps away with visible: root.calibrating when calibration ends.
+    Label {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.verticalCenter
+        anchors.bottomMargin: Dims.l(14)
+        visible: root.calibrating
+        text: "HOLD STILL"
+        font { family: "Barlow"; styleName: "Medium"; pixelSize: Dims.l(6); letterSpacing: 2 }
+        opacity: 0.7
+    }
+
     // Countdown number — sibling of the fading rect, not a child, so opacity is independent
     Label {
         anchors.centerIn: parent

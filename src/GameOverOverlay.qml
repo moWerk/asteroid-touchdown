@@ -35,14 +35,33 @@ Item {
     property real targetPadXEnd: 0
 
     signal startLevelRequested(int level)
-    // Tracks which level the player has chosen in the cycler below.
+
     property int selectedLevel: currentLevel
 
+    // True when the selected level continues the active combo chain.
+    readonly property bool comboEligible: TouchdownStorage.comboStash > 0
+        && TouchdownStorage.nextComboLevel > 0
+        && selectedLevel === TouchdownStorage.nextComboLevel
+
     visible: gameOver
+
     onGameOverChanged: {
         if (gameOver) {
             var next = root.currentLevel + 1
             selectedLevel = next <= TouchdownStorage.highestUnlockedLevel ? next : root.currentLevel
+            // Scroll list to show current level — small delay lets ListView finish layout
+            scrollTimer.start()
+        }
+    }
+
+    Timer {
+        id: scrollTimer
+        interval: 50
+        repeat: false
+        onTriggered: {
+            var offset = TouchdownStorage.comboHighScore > 0 ? 1 : 0
+            var idx = offset + (TouchdownStorage.highestUnlockedLevel - root.currentLevel)
+            scoresList.positionViewAtIndex(idx, ListView.Center)
         }
     }
 
@@ -76,10 +95,9 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.crashed ? "CRASHED" : "TOUCHDOWN!"
                 font { family: "Barlow"; styleName: "Medium"; pixelSize: Dims.l(11) }
-                color: root.crashed ? "#FF4400" : "#AAFFAA"
+                color: root.crashed ? "#dc2919" : "#AAFFAA"
             }
 
-            // Hint shown when landed off the target pad
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: root.landed && !(root.shipWorldX >= root.targetPadXStart && root.shipWorldX <= root.targetPadXEnd)
@@ -88,7 +106,6 @@ Item {
                 opacity: 0.6
             }
 
-            // Shown the first time a new level is unlocked
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: root.landed && TouchdownStorage.highestUnlockedLevel === root.currentLevel + 1
@@ -98,67 +115,47 @@ Item {
             }
         }
 
-        // Combo high score — anchored above scoresList, not floating
-        Item {
-            id: comboRow
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: gameOverTop.bottom
-            anchors.topMargin: Dims.l(4)
-            width: Dims.l(55)
-            height: TouchdownStorage.comboHighScore > 0 ? Dims.l(8) : 0
-            visible: TouchdownStorage.comboHighScore > 0
-
-            Label {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                text: "COMBO"
-                font.pixelSize: Dims.l(4.5)
-                color: "#f0c30e"
-                opacity: 0.9
-            }
-            Label {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                text: TouchdownStorage.comboHighScore
-                font.pixelSize: Dims.l(4.5)
-                color: "#f0c30e"
-                opacity: 0.9
-            }
-        }
-
-        // Per-level best times
+        // Scores list — combo row first, then per-level times, centred on current level
         ListView {
             id: scoresList
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: comboRow.bottom
-            anchors.topMargin: 0
+            anchors.top: gameOverTop.bottom
+            anchors.topMargin: Dims.l(2)
             anchors.bottom: buttonsColumn.top
             anchors.bottomMargin: Dims.l(2)
             width: Dims.l(55)
-            model: TouchdownStorage.highestUnlockedLevel
-            verticalLayoutDirection: ListView.BottomToTop
+            // Natural top-to-bottom order — highest level at top after reverse sort
+            model: TouchdownStorage.highestUnlockedLevel + (TouchdownStorage.comboHighScore > 0 ? 1 : 0)
+            clip: true
 
             delegate: Item {
                 width: scoresList.width
                 height: Dims.l(8)
-                property int lvl: index + 1
-                property int best: TouchdownStorage.bestTime(lvl)
+
+                // Index 0 is combo row when combo exists, rest are levels highest-first
+                property bool isComboRow: TouchdownStorage.comboHighScore > 0 && index === 0
+                property int lvl: {
+                    if (isComboRow) return 0
+                    var offset = TouchdownStorage.comboHighScore > 0 ? 1 : 0
+                    return TouchdownStorage.highestUnlockedLevel - (index - offset)
+                }
+                property int best: isComboRow ? 0 : TouchdownStorage.bestTime(lvl)
 
                 Label {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "L" + lvl
+                    text: isComboRow ? "COMBO" : "L" + lvl
                     font.pixelSize: Dims.l(4.5)
-                    opacity: lvl === root.currentLevel ? 1.0 : 0.6
-                    color: lvl === root.currentLevel ? "#AAFFAA" : "#FFFFFF"
+                    color: isComboRow ? "#f0c30e" : (lvl === root.currentLevel ? "#AAFFAA" : "#FFFFFF")
+                    opacity: isComboRow ? 0.9 : (lvl === root.currentLevel ? 1.0 : 0.6)
                 }
                 Label {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    text: best > 0 ? root.formatTime(best) : "—"
+                    text: isComboRow ? TouchdownStorage.comboHighScore : (best > 0 ? root.formatTime(best) : "—")
                     font.pixelSize: Dims.l(4.5)
-                    opacity: lvl === root.currentLevel ? 1.0 : 0.6
-                    color: lvl === root.currentLevel ? "#AAFFAA" : "#FFFFFF"
+                    color: isComboRow ? "#f0c30e" : (lvl === root.currentLevel ? "#AAFFAA" : "#FFFFFF")
+                    opacity: isComboRow ? 0.9 : (lvl === root.currentLevel ? 1.0 : 0.6)
                 }
             }
         }
@@ -170,7 +167,6 @@ Item {
             anchors.bottomMargin: Dims.l(6)
             spacing: Dims.l(3)
 
-            // Level select cycler — mirrors the start page, all unlocked levels available
             ValueCycler {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Dims.l(64)
@@ -184,12 +180,16 @@ Item {
                 onValueChanged: root.selectedLevel = parseInt(value.replace("Level ", ""))
             }
 
-            // Single launch button — starts whichever level the cycler shows
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Dims.l(38); height: Dims.l(12); radius: height / 2
-                color: "#55FFFFFF"
-                Label { anchors.centerIn: parent; text: "FLY L" + root.selectedLevel; font.pixelSize: Dims.l(5) }
+                color: root.comboEligible ? "#44f0ae0e" : "#55FFFFFF"
+                Label {
+                    anchors.centerIn: parent
+                    text: root.comboEligible ? "COMBO L" + root.selectedLevel : "FLY L" + root.selectedLevel
+                    font.pixelSize: Dims.l(5)
+                    color: root.comboEligible ? "#f0c30e" : "#FFFFFF"
+                }
                 MouseArea { anchors.fill: parent; onClicked: root.startLevelRequested(root.selectedLevel) }
             }
         }

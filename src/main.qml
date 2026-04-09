@@ -625,6 +625,8 @@ Application {
         missionMessage = arr[Math.floor(Math.random() * arr.length)]
         showingComms   = true
         commsOpacity   = 0.0
+        cinematicFraction = 0.0
+        cinematicAnim.restart()
         commsSequence.start()
     }
 
@@ -906,11 +908,31 @@ Application {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    commsSequence.stop()
-                    comboCommsSequence.stop()
-                    showingComms  = false
-                    commsOpacity  = 0.0
-                    gameOver      = true
+                    if (showingComboComms) {
+                        comboCommsSequence.stop()
+                        showingComms      = false
+                        showingComboComms = false
+                        commsOpacity      = 0.0
+                        if (landed && TouchdownStorage.comboChainLength >= 2) {
+                            comboFlash.start()
+                        } else {
+                            gameOver = true
+                        }
+                    } else {
+                        commsSequence.stop()
+                        showingComms  = false
+                        commsOpacity  = 0.0
+                        var comboMsg = buildComboMessage()
+                        if (comboMsg !== "") {
+                            showingComboComms = true
+                            missionMessage    = comboMsg
+                            commsOpacity      = 0.0
+                            showingComms      = true
+                            comboCommsSequence.start()
+                        } else {
+                            gameOver = true
+                        }
+                    }
                 }
             }
         }
