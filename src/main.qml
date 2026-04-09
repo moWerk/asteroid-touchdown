@@ -683,8 +683,16 @@ Application {
             x: worldToScreenX(shipWorldX) - width / 2
             y: worldToScreenY(shipWorldY) - height / 2
             rotation: shipAngle
-            visible:  playing || landed || (crashed && !playerDying)
-
+            visible: playing || landed || calibrating || (crashed && !playerDying)
+            opacity: 1.0
+            NumberAnimation on opacity {
+                id: shipFadeIn
+                running: false
+                from: 0.0; to: 1.0
+                duration: calibrationSeconds * 1000
+                easing.type: Easing.InOutCubic
+            }
+            
             Image {
                 anchors.centerIn: parent
                 width:  parent.width
@@ -791,8 +799,16 @@ Application {
         // ── HUD — left: speed+AGL, right: PROP+thrust, top: gforce+tilt
         Item {
             anchors.fill: parent
-            visible: playing
-
+            visible: playing || calibrating
+            opacity: 1.0
+            NumberAnimation on opacity {
+                id: hudFadeIn
+                running: false
+                from: 0.0; to: 1.0
+                duration: calibrationSeconds * 1000
+                easing.type: Easing.InOutCubic
+            }
+            
             // G-force — top centre, filtered, Xolonium Bold
             Label {
                 id: gForceLabel
@@ -1024,6 +1040,8 @@ Application {
                 app.calibrating = true
                 app.calibrationCount = 0
                 smoothedX = 0; smoothedY = 0
+                shipFadeIn.restart()
+                hudFadeIn.restart()
                 calibrationTimer.start()
             }
             onLevelSelected: app.currentLevel = level

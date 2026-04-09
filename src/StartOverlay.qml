@@ -69,7 +69,7 @@ Item {
                 Label { anchors.centerIn: parent; text: "ENTER ORBIT"; font.pixelSize: Dims.l(8) }
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: root.launchRequested(root.currentLevel)
+                    onClicked: { calibBgFade.restart(); root.launchRequested(root.currentLevel) }
                 }
             }
 
@@ -93,12 +93,22 @@ Item {
         anchors.fill: parent
         color: "#CC000000"
         visible: root.calibrating
-
-        Label {
-            anchors.centerIn: parent
-            text: root.calibrationSeconds - root.calibrationCount
-            font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(22) }
-            opacity: 0.9
+        opacity: 1.0
+        NumberAnimation on opacity {
+            id: calibBgFade
+            running: false
+            to: 0.0
+            duration: root.calibrationSeconds * 1000
+            easing.type: Easing.InOutCubic
         }
+    }
+
+    // Countdown number — sibling of the fading rect, not a child, so opacity is independent
+    Label {
+        anchors.centerIn: parent
+        visible: root.calibrating
+        text: root.calibrationSeconds - root.calibrationCount
+        font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(22) }
+        opacity: 0.9
     }
 }
