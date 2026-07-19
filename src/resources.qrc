@@ -2,6 +2,7 @@
     <qresource prefix="/">
         <file>main.qml</file>
         <file>DeathShader.qml</file>
+    <file>shaders/death.frag.qsb</file>
         <file>CommsMessages.qml</file>
         <file>ValueCycler.qml</file>
         <file>GameOverOverlay.qml</file>
