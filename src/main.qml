@@ -15,13 +15,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import QtQuick 2.15
-import QtSensors 5.15
-import QtQuick.Shapes 1.15
-import Nemo.KeepAlive 1.1
-import Nemo.Ngf 1.0
-import org.asteroid.controls 1.0
-import org.asteroid.touchdown 1.0
+import QtQuick
+import QtSensors
+import QtQuick.Shapes
+import Nemo.KeepAlive
+import Nemo.Ngf
+import org.asteroid.controls
+import org.asteroid.touchdown
 
 Application {
     id: app

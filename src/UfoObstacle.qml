@@ -15,8 +15,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import QtQuick 2.9
-import QtQuick.Shapes 1.15
+import QtQuick
+import QtQuick.Shapes
 
 // Pure visual component — no logic, no timers, no state.
 // Position and size are set by main.qml each frame.
