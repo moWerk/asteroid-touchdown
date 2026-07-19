@@ -329,7 +329,7 @@ Application {
     // Explicitly excludes selectingLevel and gameOver so display can blank on
     // menus and the result screen — prevents battery drain on forgotten watches.
     property bool keepAwake: playing || landed || playerDying
-    onKeepAwakeChanged: DisplayBlanking.preventBlanking = keepAwake
+    DisplayBlanking { preventBlanking: keepAwake }
 
     // ── Accelerometer
     Accelerometer {
@@ -1252,7 +1252,6 @@ Application {
     }
 
     Component.onCompleted: {
-        DisplayBlanking.preventBlanking = keepAwake
         // Preselect combo continuation level if an active chain exists
         currentLevel = TouchdownStorage.nextComboLevel > 0 ? TouchdownStorage.nextComboLevel : TouchdownStorage.highestUnlockedLevel
         selectingLevel = true
