@@ -24,13 +24,13 @@ TouchdownStorage *TouchdownStorage::s_instance = nullptr;
 TouchdownStorage::TouchdownStorage(QObject *parent)
     : QObject(parent)
     , m_settings(
-          QStandardPaths::writableLocation(QStandardPaths::HomeLocation)
-          + QStringLiteral("/.config/asteroid-touchdown/game.ini"),
+          // SailfishOS: the per-app config directory, ~/.config/<org>/<app>/
+          QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)
+          + QStringLiteral("/game.ini"),
           QSettings::IniFormat)
 {
     QDir().mkpath(
-        QStandardPaths::writableLocation(QStandardPaths::HomeLocation)
-        + QStringLiteral("/.config/asteroid-touchdown"));
+        QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));
     s_instance = this;
 }
 

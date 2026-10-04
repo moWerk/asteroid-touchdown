@@ -15,9 +15,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import QtQuick
-import org.asteroid.controls
-import org.asteroid.touchdown
+import QtQuick 2.6
+import "."
+import org.asteroid.touchdown 1.0
 
 // Covers level selection and the pre-launch calibration countdown.
 // Write-back to main.qml is through two signals only — no object references cross the boundary.

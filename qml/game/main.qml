@@ -15,17 +15,23 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import QtQuick
-import QtSensors
-import QtQuick.Shapes
-import Nemo.KeepAlive
-import Nemo.Ngf
-import org.asteroid.controls
-import org.asteroid.touchdown
+import QtQuick 2.6
+import QtSensors 5.2
+import Nemo.KeepAlive 1.2
+import Nemo.Ngf 1.0
+import "."
+import org.asteroid.touchdown 1.0
 
-Application {
+// SailfishOS: Application of org.asteroid.controls is only a full screen
+// root here; a black Item does the same.
+Item {
     id: app
     anchors.fill: parent
+
+    Rectangle {
+        anchors.fill: parent
+        color: "black"
+    }
 
     // ── Physics tuning
     QtObject {
@@ -187,7 +193,12 @@ Application {
     // Both anchors are fixed screen positions — floor never drifts, ship never
     // drifts. Zoom is derived purely from shipWorldY, not from altitude or the
     // heightmap, so lateral flight over uneven terrain causes zero zoom bumps.
-    property real shipScreenY:    app.height * viewport.shipVerticalFraction
+    // SailfishOS: the camera is tuned for a square screen. On a tall phone it
+    // keeps a square of the screen width at the bottom, so ship, surface and
+    // zoom behave exactly as on the watch; the extra height shows more sky.
+    property real camSize:        Math.min(app.width, app.height)
+    property real camTop:         app.height - camSize
+    property real shipScreenY:    camTop + camSize * viewport.shipVerticalFraction
     property real surfaceScreenY: app.height - viewport.surfaceBottomMargin
 
     // 0 = gameplay camera, 1 = cinematic (ship centred, closer zoom).
@@ -196,12 +207,12 @@ Application {
 
     property real gameplayZoom: (surfaceScreenY - shipScreenY) / Math.max(viewport.minViewBand, world.floorY - shipWorldY)
     // Cinematic zoom — ship fills roughly a third of the screen height.
-    property real cinematicZoom: app.height / (viewport.minViewBand * 1.8)
+    property real cinematicZoom: camSize / (viewport.minViewBand * 1.8)
     property real zoomScale: gameplayZoom + cinematicFraction * (cinematicZoom - gameplayZoom)
     
     // During cinematic the anchor shifts so the ship lands at screen centre.
     // Gameplay always keeps floor at surfaceScreenY — no drift near surface.
-    property real effectiveSurfaceScreenY: surfaceScreenY + cinematicFraction * (app.height * 0.5 + (world.floorY - shipWorldY) * cinematicZoom - surfaceScreenY)
+    property real effectiveSurfaceScreenY: surfaceScreenY + cinematicFraction * (camTop + camSize * 0.5 + (world.floorY - shipWorldY) * cinematicZoom - surfaceScreenY)
     
     NumberAnimation on cinematicFraction {
         id: cinematicAnim
@@ -329,6 +340,18 @@ Application {
     // Explicitly excludes selectingLevel and gameOver so display can blank on
     // menus and the result screen — prevents battery drain on forgotten watches.
     property bool keepAwake: playing || landed || playerDying
+
+    // SailfishOS: the app window reads these for the cover. The game has no
+    // pause, so the cover only shows the live scene.
+    readonly property bool paused: false
+    readonly property bool inPreGame: !playing
+
+    // Test hook (set from main.cpp): start a round without a tap
+    Timer {
+        interval: 500
+        running: typeof selftestAutostart !== "undefined" && selftestAutostart
+        onTriggered: startOverlay.launchRequested(currentLevel)
+    }
     DisplayBlanking { preventBlanking: keepAwake }
 
     // ── Accelerometer
@@ -398,7 +421,7 @@ Application {
             var lowerForce = thrustLower * physics.lowerThrustForce
             var upperForce = thrustUpper * physics.upperThrustForce
             var lateralUpper = thrustUpper * physics.lowerThrustForce * physics.upperLateralFraction * Math.sin(angleRad)
-            app.lateralUpper = Math.abs(lateralUpper) > 0.001 ? Math.sign(lateralUpper) : 0
+            app.lateralUpper = Math.abs(lateralUpper) > 0.001 ? (lateralUpper > 0 ? 1 : -1) : 0
             var tiltLateral = Math.sin(angleRad) * physics.tiltLateralForce
             vx = vx + (lowerForce * Math.sin(angleRad) + lateralUpper + tiltLateral) * dt
             vy = vy + (physics.gravity - lowerForce * Math.cos(angleRad) + upperForce) * dt
@@ -595,7 +618,7 @@ Application {
     }
 
     // ── Haptics
-    NonGraphicalFeedback { id: haptic; event: "press" }
+    NonGraphicalFeedback { id: haptic; event: "feedback_press" }
 
     SequentialAnimation {
         id: commsSequence
@@ -711,63 +734,56 @@ Application {
             y: worldToScreenY(ufoWorldY) - height / 2
         }
 
-        // ── Rocks — one Shape per rock, each fully self-contained
-        // No world-spanning polyline = zero stray lines by construction.
-        Repeater {
-            model: world.rocks.length
-            delegate: Shape {
-                property int rockIndex: index   // explicit capture for nested binding scope
-                anchors.fill: parent
-                ShapePath {
-                    fillColor:   "#2A2A2A"
-                    strokeColor: "#CCFFFFFF"
-                    strokeWidth: Math.max(1.5, zoomScale * 2.4)
-                    capStyle:    ShapePath.RoundCap
-                    joinStyle:   ShapePath.RoundJoin
-                    PathPolyline {
-                        path: {
-                            if (rockIndex >= world.rocks.length) return []
-                                var rock  = world.rocks[rockIndex]
-                                var verts = rock.vertices
-                                // Wrap center once — avoids per-vertex seam stretch
-                                var scx = worldToScreenX(rock.cx)
-                                var scy = worldToScreenY(rock.cy)
-                                var pts = []
-                                for (var i = 0; i < verts.length; i++)
-                                    pts.push(Qt.point(
-                                        scx + (verts[i].x - rock.cx) * zoomScale,
-                                                      scy + (verts[i].y - rock.cy) * zoomScale))
-                                    pts.push(Qt.point(
-                                        scx + (verts[0].x - rock.cx) * zoomScale,
-                                                      scy + (verts[0].y - rock.cy) * zoomScale))
-                                    return pts
-                        }
-                    }
-                }
-            }
-        }
-
-        // ── Target pad highlight
-        // Only the top edge — the floor fill handles the body below.
-        Shape {
+        // ── Rocks and target pad
+        // SailfishOS (Qt 5.6) has no QtQuick.Shapes. One Canvas draws every
+        // rock and the pad's top edge with the same geometry as before, and
+        // is repainted whenever the camera or the world changes.
+        Canvas {
+            id: terrainCanvas
             anchors.fill: parent
-            visible: world.pads.length > 0
-            ShapePath {
-                fillColor:   "transparent"
-                strokeColor: "#FFFFA0"
-                strokeWidth: Math.max(2.5, zoomScale * 4.5)
-                capStyle:    ShapePath.RoundCap
-                PathPolyline {
-                    path: {
-                        if (world.pads.length === 0) return []
-                        var sx = worldToScreenX(world.targetPadXStart)
-                        var ex = worldToScreenX(world.targetPadXEnd)
-                        // Cull when pad is entirely off-screen or has wrapped across the seam
-                        // relative to the camera — the latter causes a full-width stray line.
-                        if (ex < -app.width || sx > app.width * 2) return []
-                        if (ex < sx) return []
+            renderTarget: Canvas.FramebufferObject
+            renderStrategy: Canvas.Cooperative
+            property var paintKey: [shipWorldX, shipWorldY, zoomScale, effectiveSurfaceScreenY,
+                                    world.rocks, world.pads, world.targetPadXStart, world.targetPadXEnd,
+                                    width, height]
+            onPaintKeyChanged: requestPaint()
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.reset()
+                ctx.lineCap = "round"
+                ctx.lineJoin = "round"
+                ctx.fillStyle = "#2A2A2A"
+                ctx.strokeStyle = "#CCFFFFFF"
+                ctx.lineWidth = Math.max(1.5, zoomScale * 2.4)
+                var rocks = world.rocks
+                for (var r = 0; r < rocks.length; r++) {
+                    var rock  = rocks[r]
+                    var verts = rock.vertices
+                    // Wrap center once — avoids per-vertex seam stretch
+                    var scx = worldToScreenX(rock.cx)
+                    var scy = worldToScreenY(rock.cy)
+                    ctx.beginPath()
+                    for (var i = 0; i < verts.length; i++) {
+                        var px = scx + (verts[i].x - rock.cx) * zoomScale
+                        var py = scy + (verts[i].y - rock.cy) * zoomScale
+                        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
+                    }
+                    ctx.closePath()
+                    ctx.fill()
+                    ctx.stroke()
+                }
+                if (world.pads.length > 0) {
+                    var sx = worldToScreenX(world.targetPadXStart)
+                    var ex = worldToScreenX(world.targetPadXEnd)
+                    // Cull when the pad is off-screen or has wrapped across the seam
+                    if (!(ex < -app.width || sx > app.width * 2) && ex >= sx) {
                         var sy = worldToScreenY(world.floorY)
-                        return [Qt.point(sx, sy), Qt.point(ex, sy)]
+                        ctx.strokeStyle = "#FFFFA0"
+                        ctx.lineWidth = Math.max(2.5, zoomScale * 4.5)
+                        ctx.beginPath()
+                        ctx.moveTo(sx, sy)
+                        ctx.lineTo(ex, sy)
+                        ctx.stroke()
                     }
                 }
             }
@@ -796,9 +812,9 @@ Application {
                 width:  parent.width
                 height: parent.height
                 source: crashed
-                        ? (crashSide === "left" ? "asteroid-touchdown-ship-right-gear.svg"
-                                                : "asteroid-touchdown-ship-left-gear.svg")
-                        : "asteroid-touchdown-ship.svg"
+                        ? (crashSide === "left" ? "img/asteroid-touchdown-ship-right-gear.svg"
+                                                : "img/asteroid-touchdown-ship-left-gear.svg")
+                        : "img/asteroid-touchdown-ship.svg"
                 smooth: true
             }
 
@@ -809,7 +825,7 @@ Application {
                 anchors.topMargin:        parent.width * 0.4
                 width:  parent.width * 0.3
                 height: shipItem.height * 1.6 * Math.max(0.05, thrustLower)
-                source: "asteroid-touchdown-thruster.svg"
+                source: "img/asteroid-touchdown-thruster.svg"
                 smooth: true
                 opacity: Math.max(0.05, thrustLower)
                 Behavior on height { SmoothedAnimation { velocity: shipItem.height * 6 } }
@@ -824,7 +840,7 @@ Application {
                 anchors.verticalCenterOffset: -shipItem.height * 0.02
                 width: parent.width * 0.2
                 height: shipItem.height * 0.5 * Math.max(0.05, thrustUpper)
-                source: "asteroid-touchdown-thruster-rcs.svg"
+                source: "img/asteroid-touchdown-thruster-rcs.svg"
                 smooth: true
                 mirror: true
                 rotation: 135
@@ -842,7 +858,7 @@ Application {
                 anchors.verticalCenterOffset: -shipItem.height * 0.02
                 width: parent.width * 0.2
                 height: shipItem.height * 0.5 * Math.max(0.05, thrustUpper)
-                source: "asteroid-touchdown-thruster-rcs.svg"
+                source: "img/asteroid-touchdown-thruster-rcs.svg"
                 smooth: true
                 rotation: -135
                 transformOrigin: Item.Top
@@ -955,7 +971,8 @@ Application {
                 id: gForceLabel
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                anchors.topMargin: Dims.l(1)
+                // SailfishOS: below the camera notch of a phone like the Jolla C2
+                anchors.topMargin: Dims.l(1) + Dims.l(6)
                 text: gForceDisplay.toFixed(1) + "g"
                 font { family: "Xolonium"; styleName: "Bold"; pixelSize: Dims.l(7); letterSpacing: 0.4 }
                 color: "#f0c30e"
@@ -1180,6 +1197,7 @@ Application {
         }
 
         StartOverlay {
+            id: startOverlay
             anchors.fill: parent
             selectingLevel: app.selectingLevel
             calibrating: app.calibrating
