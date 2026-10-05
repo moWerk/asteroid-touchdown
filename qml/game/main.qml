@@ -85,10 +85,19 @@ Item {
     // ── Viewport tuning
     QtObject {
         id: viewport
+        // SailfishOS: the world used to be sized in screen pixels (Dims.l(100)),
+        // while gravity, thrust, landing speed, gear offset and ship size are
+        // fixed numbers. A larger screen therefore meant a taller world against
+        // the same forces: longer falls, harder impacts, a smaller ship. The
+        // world is now sized from this fixed reference instead; the camera zoom
+        // maps it to the real screen. 480 is an assumption for the watch size
+        // the constants were tuned on (the dodger port's speed scaling used the
+        // same value and felt right on the C2). Change it here if it is not.
+        readonly property real refSize: 480
         // Total scrollable world width in world-units. Ship wraps carousel-style at both edges.
-        property real worldWidth: Dims.l(100) * 10.0
+        property real worldWidth: refSize * 10.0
         // Total play-space height from spawn (Y = 0) to the floor plane.
-        property real worldHeight: Dims.l(100) * 3.8
+        property real worldHeight: refSize * 3.8
         // Ship is always pinned at this fraction from the top of the screen (0 = top, 1 = bottom).
         // Lower values give more sky above the ship; higher values expose more ground.
         property real shipVerticalFraction: 0.20
@@ -97,7 +106,7 @@ Item {
         property real surfaceBottomMargin: Dims.l(24)
         // Zoom locks when fewer than this many world-units remain between ship and floor.
         // Prevents the camera from zooming to infinity on final approach.
-        property real minViewBand: Dims.l(100) * 0.9
+        property real minViewBand: refSize * 0.9
         // Extra pixels added to ship display size at spawn (Y=0). Lerps to 0 at surface.
         property real shipSpawnSizeBonus: 60
     }

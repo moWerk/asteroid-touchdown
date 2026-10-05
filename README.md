@@ -14,15 +14,21 @@ Sailfish OS 5.1 on aarch64 and was run on a Jolla C2. The game is the
 
 ### On a tall phone screen
 
-The flight physics work in world units scaled to the screen width, so
-they are the same on a phone. Only the camera used the screen height:
-it keeps the ship at a fixed fraction from the top and the floor near
-the bottom, and zooms to fit the distance in between. On a tall screen
-that meant a closer zoom and a narrower view. The camera now works on a
-square as wide as the screen at the bottom of the display, so ship,
-floor and zoom behave as on the watch. The extra height above shows more
-sky. The HUD uses the whole screen; the readouts at the top sit below
-the camera notch.
+On the watch the world was sized in screen pixels, while gravity, thrust,
+landing speed and the ship are fixed numbers. On a larger screen that
+gives a taller world against the same forces: on the 720 px wide C2 a
+free fall to the floor took 10.5 s instead of 8.5 s and hit harder. The
+world is now sized from a fixed reference of 480 px (`viewport.refSize`),
+so the flight is the same on every screen and the camera zoom maps it to
+the display. 480 is an assumption for the watch size the game was tuned
+on.
+
+The camera keeps the ship at a fixed fraction from the top and the floor
+near the bottom, and zooms to fit the distance in between. On a tall
+screen that would zoom in and narrow the view, so the camera works on a
+square as wide as the screen at the bottom of the display. The extra
+height above shows more sky. The HUD uses the whole screen; the readouts
+at the top sit below the camera notch.
 
 ### Only on SailfishOS
 
@@ -53,8 +59,8 @@ Teko ship with the app.
 ### Disclosure for the port
 
 The port was written by an LLM overnight. The model chose the camera
-approach to keep the watch mechanics, and checked the result through
-window grabs on one Jolla C2. Nobody has flown it or read its code yet.
+approach and the 480 px reference to keep the watch mechanics, and
+checked the result through window grabs on one Jolla C2. Nobody has flown it or read its code yet.
 
 ```
 Disclosure: LLMGD-2 · origin O0 (LLM-ported, camera approach chosen by the model; checked through window grabs on one Jolla C2; not yet flown or read; self-graded)
