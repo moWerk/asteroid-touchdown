@@ -213,8 +213,8 @@ Item {
     property real squareSpan:     camSize * (1 - viewport.shipVerticalFraction) - viewport.surfaceBottomMargin
     property real fullSpan:       app.height * (1 - viewport.shipVerticalFraction) - viewport.surfaceBottomMargin
     property real surfaceScreenY: app.height - viewport.surfaceBottomMargin
-    property real shipScreenY:    surfaceScreenY - (squareSpan + tallZoomBlend * (fullSpan - squareSpan))
-    property real camTop:         app.height - camSize
+    property real cameraSpan:     squareSpan + tallZoomBlend * (fullSpan - squareSpan)
+    property real shipScreenY:    surfaceScreenY - cameraSpan
 
     // 0 = gameplay camera, 1 = cinematic (ship centred, closer zoom).
     // Animated to 1 when comms sequence starts, reset to 0 on new level.
@@ -222,12 +222,15 @@ Item {
 
     property real gameplayZoom: (surfaceScreenY - shipScreenY) / Math.max(viewport.minViewBand, world.floorY - shipWorldY)
     // Cinematic zoom — ship fills roughly a third of the screen height.
-    property real cinematicZoom: camSize / (viewport.minViewBand * 1.8)
+    // On the watch the close-up zoom is about the zoom of the final approach
+    // (ratio camSize / (1.8 * squareSpan), 0.99 on a 480 px watch). It keeps
+    // that ratio to the blended camera, so the close-up does not zoom out.
+    property real cinematicZoom: cameraSpan / viewport.minViewBand * camSize / (1.8 * squareSpan)
     property real zoomScale: gameplayZoom + cinematicFraction * (cinematicZoom - gameplayZoom)
     
     // During cinematic the anchor shifts so the ship lands at screen centre.
     // Gameplay always keeps floor at surfaceScreenY — no drift near surface.
-    property real effectiveSurfaceScreenY: surfaceScreenY + cinematicFraction * (camTop + camSize * 0.5 + (world.floorY - shipWorldY) * cinematicZoom - surfaceScreenY)
+    property real effectiveSurfaceScreenY: surfaceScreenY + cinematicFraction * (app.height * 0.5 + (world.floorY - shipWorldY) * cinematicZoom - surfaceScreenY)
     
     NumberAnimation on cinematicFraction {
         id: cinematicAnim

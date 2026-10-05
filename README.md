@@ -24,11 +24,13 @@ the display. 480 is an assumption for the watch size the game was tuned
 on.
 
 The camera keeps the ship at a fixed fraction from the top and the floor
-near the bottom, and zooms to fit the distance in between. On a tall
-screen that would zoom in and narrow the view, so the camera works on a
-square as wide as the screen at the bottom of the display. The extra
-height above shows more sky. The HUD uses the whole screen; the readouts
-at the top sit below the camera notch.
+near the bottom, and zooms to fit the distance in between. Using the
+whole tall screen would zoom in a lot and narrow the view; keeping the
+watch zoom leaves the top third empty. `tallZoomBlend` (0.5) sits in
+between: the ship starts at about 40 % of the screen height and is drawn
+larger than on the watch. The landing close-up keeps its watch relation
+to that zoom. The HUD uses the whole screen; the readouts at the top sit
+below the camera notch.
 
 ### Only on SailfishOS
 
@@ -41,8 +43,10 @@ Download the RPM from the releases page and install it:
 
     devel-su pkcon install-local harbour-asteroid-touchdown-1.0.0-1.aarch64.rpm
 
-It is aarch64 only. The app runs without sandboxing, so it is for
-sideloading and not a store build. Progress and records are stored in
+It is aarch64 only. The app runs in the SailfishOS sandbox with the
+Sensors permission: the first start from the app grid asks once to allow
+it. Without it the tilt control does not work. The Jolla Store does not
+allow that permission, so this is for Chum and sideloading. Progress and records are stored in
 `~/.config/net.mowerk/harbour-asteroid-touchdown/game.ini`.
 
 ### Build
@@ -58,13 +62,15 @@ Teko ship with the app.
 
 ### Disclosure for the port
 
-The port was written by an LLM overnight. The model chose the camera
-approach and the 480 px reference to keep the watch mechanics, and
-checked the result through window grabs on one Jolla C2. Nobody has flown it or read its code yet.
+The port was written by an LLM overnight. The model chose the 480 px
+reference and the camera approach. The author flew an earlier build on
+his Jolla C2 and found the top of the screen unused, which led to the
+camera blend; the current build is checked through window grabs only.
+He has not read the port's code.
 
 ```
-Disclosure: LLMGD-2 · origin O0 (LLM-ported, camera approach chosen by the model; checked through window grabs on one Jolla C2; not yet flown or read; self-graded)
-LLMGD: v0.2; assurance=A2; flags=T; origin={O0:.85,O1:.15}; origin_headline=O0; scope=port(code+assets+packaging+docs); graded-by=claude-opus-5-5; retrieval=author-side
+Disclosure: LLMGD-3 · origin O0 (LLM-ported; the author flew an earlier build on one Jolla C2 and steered the camera; current build checked through window grabs; code not read; self-graded)
+LLMGD: v0.2; assurance=A3; flags=U,T; origin={O0:.75,O1:.25}; origin_headline=O0; scope=port(code+assets+packaging+docs); graded-by=claude-opus-5-5; retrieval=author-side
 ```
 
 ## Gameplay
