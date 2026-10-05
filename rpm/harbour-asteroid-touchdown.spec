@@ -1,6 +1,6 @@
 Name:       harbour-asteroid-touchdown
 Summary:    Touchdown, a tilt controlled lunar lander
-Version:    1.0.0
+Version:    1.0.1
 Release:    1
 License:    GPLv3+
 URL:        https://github.com/moWerk/asteroid-touchdown

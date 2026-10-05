@@ -41,7 +41,7 @@ below the camera notch.
 
 Download the RPM from the releases page and install it:
 
-    devel-su pkcon install-local harbour-asteroid-touchdown-1.0.0-1.aarch64.rpm
+    devel-su pkcon install-local harbour-asteroid-touchdown-1.0.1-1.aarch64.rpm
 
 It is aarch64 only. The app runs in the SailfishOS sandbox with the
 Sensors permission: the first start from the app grid asks once to allow
