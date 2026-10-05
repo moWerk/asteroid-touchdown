@@ -82,7 +82,8 @@ Item {
             id: gameOverTop
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.topMargin: Dims.l(4)
+            // SailfishOS: below the camera notch of a phone like the Jolla C2
+            anchors.topMargin: Dims.l(4) + Dims.l(6)
             spacing: Dims.l(2)
 
             Label {

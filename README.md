@@ -6,6 +6,61 @@ A precision lunar lander game for [AsteroidOS](https://asteroidos.org). Tilt you
 
 ---
 
+## SailfishOS
+
+This branch is the SailfishOS version of the game. It is built for
+Sailfish OS 5.1 on aarch64 and was run on a Jolla C2. The game is the
+1.0 watch version; this section lists what is different.
+
+### On a tall phone screen
+
+The flight physics work in world units scaled to the screen width, so
+they are the same on a phone. Only the camera used the screen height:
+it keeps the ship at a fixed fraction from the top and the floor near
+the bottom, and zooms to fit the distance in between. On a tall screen
+that meant a closer zoom and a narrower view. The camera now works on a
+square as wide as the screen at the bottom of the display, so ship,
+floor and zoom behave as on the watch. The extra height above shows more
+sky. The HUD uses the whole screen; the readouts at the top sit below
+the camera notch.
+
+### Only on SailfishOS
+
+- **Live cover**: swipe the app away and the flight keeps running in the
+  home screen tile. The game has no pause, so the tile has no button.
+
+### Install
+
+Download the RPM from the releases page and install it:
+
+    devel-su pkcon install-local harbour-asteroid-touchdown-1.0.0-1.aarch64.rpm
+
+It is aarch64 only. The app runs without sandboxing, so it is for
+sideloading and not a store build. Progress and records are stored in
+`~/.config/net.mowerk/harbour-asteroid-touchdown/game.ini`.
+
+### Build
+
+With the Sailfish Platform SDK and a 5.1.0.11 aarch64 target:
+
+    mb2 -t SailfishOS-5.1.0.11-aarch64 build
+
+SailfishOS is on Qt 5.6. The port draws the rocks, the pad and the UFO
+on Canvas items instead of `QtQuick.Shapes`, uses an inline GLSL shader
+and small stand-ins for the AsteroidOS components. Barlow, Xolonium and
+Teko ship with the app.
+
+### Disclosure for the port
+
+The port was written by an LLM overnight. The model chose the camera
+approach to keep the watch mechanics, and checked the result through
+window grabs on one Jolla C2. Nobody has flown it or read its code yet.
+
+```
+Disclosure: LLMGD-2 · origin O0 (LLM-ported, camera approach chosen by the model; checked through window grabs on one Jolla C2; not yet flown or read; self-graded)
+LLMGD: v0.2; assurance=A2; flags=T; origin={O0:.85,O1:.15}; origin_headline=O0; scope=port(code+assets+packaging+docs); graded-by=claude-opus-5-5; retrieval=author-side
+```
+
 ## Gameplay
 
 Your ship spawns above a procedurally generated rocky surface. Tilt the watch toward you to fire the main engine and arrest your descent. Tilt away to fire the retro thrusters. Lean left or right to drift laterally.
