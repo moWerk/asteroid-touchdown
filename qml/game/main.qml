@@ -18,7 +18,7 @@
 import QtQuick 2.6
 import QtSensors 5.2
 import Nemo.KeepAlive 1.2
-import Nemo.Ngf 1.0
+import QtFeedback 5.0
 import "."
 import org.asteroid.touchdown 1.0
 
@@ -202,13 +202,19 @@ Item {
     // Both anchors are fixed screen positions — floor never drifts, ship never
     // drifts. Zoom is derived purely from shipWorldY, not from altitude or the
     // heightmap, so lateral flight over uneven terrain causes zero zoom bumps.
-    // SailfishOS: the camera is tuned for a square screen. On a tall phone it
-    // keeps a square of the screen width at the bottom, so ship, surface and
-    // zoom behave exactly as on the watch; the extra height shows more sky.
+    // SailfishOS: the camera is tuned for a square screen. It pins the ship
+    // at a fraction from the top and the floor near the bottom and zooms to
+    // fit. On a tall phone, using the full height zooms in a lot and narrows
+    // the view; using a square at the bottom keeps the watch zoom but leaves
+    // the top of the screen empty (mo, 2026-10-05). tallZoomBlend sits in
+    // between: 0 = watch zoom (square at the bottom), 1 = full height.
+    readonly property real tallZoomBlend: 0.5
     property real camSize:        Math.min(app.width, app.height)
-    property real camTop:         app.height - camSize
-    property real shipScreenY:    camTop + camSize * viewport.shipVerticalFraction
+    property real squareSpan:     camSize * (1 - viewport.shipVerticalFraction) - viewport.surfaceBottomMargin
+    property real fullSpan:       app.height * (1 - viewport.shipVerticalFraction) - viewport.surfaceBottomMargin
     property real surfaceScreenY: app.height - viewport.surfaceBottomMargin
+    property real shipScreenY:    surfaceScreenY - (squareSpan + tallZoomBlend * (fullSpan - squareSpan))
+    property real camTop:         app.height - camSize
 
     // 0 = gameplay camera, 1 = cinematic (ship centred, closer zoom).
     // Animated to 1 when comms sequence starts, reset to 0 on new level.
@@ -468,7 +474,7 @@ Item {
                     if (Math.sqrt(ufoDx * ufoDx + ufoDy * ufoDy) < physics.ufoHitRadius) {
                         vx = vx + ufoDir * physics.ufoImpulseX
                         vy = vy + physics.ufoImpulseY
-                        haptic.event = "press"
+                        haptic.effect = ThemeEffect.Press
                         haptic.play()
                         ufoInGrace = true
                         ufoGraceTimer.start()
@@ -516,7 +522,7 @@ Item {
                         crashSide = vx >= 0 ? "right" : "left"
                         playerDying = true
                         deathProgress = 0.0
-                        haptic.event = "notif_strong"
+                        haptic.effect = ThemeEffect.PressStrong
                         haptic.play()
                         crashAnimation.start()
                         deathAnim.start()
@@ -627,7 +633,10 @@ Item {
     }
 
     // ── Haptics
-    NonGraphicalFeedback { id: haptic; event: "feedback_press" }
+    // Haptics through QtFeedback's ThemeEffect: Nemo.Ngf is not allowed in
+    // the Jolla Store, ThemeEffect with Press* is. The watch events "press"
+    // and "notif_strong" do not exist on SailfishOS and were silent.
+    ThemeEffect { id: haptic; effect: ThemeEffect.Press }
 
     SequentialAnimation {
         id: commsSequence
