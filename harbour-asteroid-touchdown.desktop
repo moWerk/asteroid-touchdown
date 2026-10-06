@@ -2,7 +2,7 @@
 Type=Application
 X-Nemo-Application-Type=silica-qt5
 Icon=harbour-asteroid-touchdown
-Exec=harbour-asteroid-touchdown
+Exec=sailfish-qml harbour-asteroid-touchdown
 Name=Touchdown
 Comment=A tilt controlled lunar lander
 

@@ -17,7 +17,6 @@
 
 import QtQuick 2.6
 import "."
-import org.asteroid.touchdown 1.0
 
 // Shown when gameOver becomes true. Fades in via opacity Behavior.
 // Write-back to main.qml is entirely through startLevelRequested(level).

@@ -200,3 +200,24 @@ Save data is stored at `~/.config/asteroid-touchdown/game.ini` on the watch. It 
 GPL-3.0-only. See [LICENSE](LICENSE).
 
 © 2026 Timo Könnecke — [github.com/moWerk](https://github.com/moWerk)
+
+### Pure QML, one package for every phone (1.1.0)
+
+App developer poetaster pointed out in the forum that these ports need no
+compiled code. Since 1.1.0 the app is QML only: the system's `sailfish-qml`
+launcher runs it, and one `noarch` package serves aarch64, 32 bit ARM and
+x86, SailfishOS 3.4 to 5.1. Install with
+`devel-su pkcon install-local harbour-asteroid-touchdown-1.1.0-1.noarch.rpm`;
+pkcon brings in the launcher (libsailfishapp-launcher) if it is missing.
+The package is compressed with xz, because rpm on SailfishOS 3.4 cannot
+unpack the zstd that newer SDKs use by default.
+
+Unlocked levels, best times and the combo record moved from a QSettings file (C++) to dconf under `/apps/harbour-asteroid-touchdown` (Nemo.Configuration, QML), and the fonts are loaded by QML FontLoaders. Progress from earlier versions is not carried over.
+
+Checked: installed and started without QML warnings on a Jolla C2 (5.1),
+the Jolla Tablet (4.6) and a Jolla 1 (3.4).
+
+```
+Disclosure: LLMGD-3 · origin O1 (idea from a forum reply and the author's go; LLM-converted; start-checked by log on three devices; self-graded)
+LLMGD: v0.2; assurance=A3; flags=T; origin={O0:.7,O1:.3}; origin_headline=O0; scope=packaging+code; graded-by=claude-opus-5-5; retrieval=author-side
+```

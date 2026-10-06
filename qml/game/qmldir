@@ -1,1 +1,2 @@
 singleton Dims 1.0 Dims.qml
+singleton TouchdownStorage 1.0 TouchdownStorage.qml

@@ -20,7 +20,6 @@ import QtSensors 5.2
 import Nemo.KeepAlive 1.2
 import QtFeedback 5.0
 import "."
-import org.asteroid.touchdown 1.0
 
 // SailfishOS: Application of org.asteroid.controls is only a full screen
 // root here; a black Item does the same.
