@@ -43,6 +43,7 @@ Item {
     }
 
     HighlightBar {
+        z: -1           // the plate goes behind the text
         anchors.fill: parent
         onClicked: {
             if (valueArray.length === 0) return

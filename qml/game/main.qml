@@ -1224,6 +1224,7 @@ Item {
             currentLevel: app.currentLevel
             calibrationSeconds: app.calibrationSeconds
             calibrationCount: app.calibrationCount
+            version: "v1.2"
             onLaunchRequested: {
                 generateWorld(level)
                 app.selectingLevel = false

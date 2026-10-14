@@ -48,42 +48,54 @@ Item {
         return (m > 0 ? m + ":" : "") + (m > 0 && (s % 60) < 10 ? "0" : "") + (s % 60) + "." + ds + "s"
     }
 
-    // ── Level select
-    Rectangle {
+    property string version: ""
+
+    // SailfishOS: cover art (AI-generated with Grok from the author's prompt;
+    // see img/README). The pad and crater sit in its lower third, so the title
+    // keeps to the top and the controls to the bottom edge.
+    Image {
+        id: art
         anchors.fill: parent
-        color: "#CC000000"
+        source: "img/title-art.jpg"
+        fillMode: Image.PreserveAspectCrop
+        visible: root.selectingLevel || root.calibrating
+        // during the countdown the art fades into the game world
+        opacity: 1.0
+        NumberAnimation on opacity {
+            id: calibBgFade
+            running: false
+            to: 0.0
+            duration: root.calibrationSeconds * 1000
+            easing.type: Easing.InOutCubic
+        }
+    }
+
+    // ── Level select
+    Item {
+        anchors.fill: parent
         visible: root.selectingLevel
 
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            // centred in the sky, which fills the art's upper half
+            anchors.verticalCenter: parent.top
+            anchors.verticalCenterOffset: parent.height * 0.26
+            text: "ASTEROID\nTOUCHDOWN"
+            horizontalAlignment: Text.AlignHCenter
+            lineHeightMode: Text.ProportionalHeight
+            lineHeight: 1.0
+            font { family: "Barlow"; styleName: "Bold"; pixelSize: Dims.l(15) }
+        }
+
         Column {
-            anchors.centerIn: parent
-            spacing: Dims.l(7)
-
-            Label {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "TOUCHDOWN"
-                font { family: "Barlow"; styleName: "Medium"; pixelSize: Dims.l(11) }
-                opacity: 0.9
-            }
-
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: Dims.l(64); height: Dims.l(20); radius: height / 2
-                color: root.comboEligible ? "#44f0ae0e" : "#55FFFFFF"
-                Label {
-                    anchors.centerIn: parent
-                    text: root.comboEligible ? "COMBO STREAK" : "ENTER ORBIT"
-                    font.pixelSize: Dims.l(8)
-                    color: root.comboEligible ? "#f0c30e" : "#FFFFFF"
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: { calibBgFade.restart(); root.launchRequested(root.currentLevel) }
-                }
-            }
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: parent.height * 0.08 - Dims.l(2)
+            spacing: Dims.l(5)
 
             ValueCycler {
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: parent.width
+                width: Dims.l(64)
                 height: Dims.l(14)
                 valueArray: {
                     var arr = []
@@ -94,21 +106,40 @@ Item {
                 labelColor: root.comboEligible ? "#f0c30e" : "#FFFFFF"
                 onValueChanged: root.levelSelected(parseInt(value.replace("Level ", "")))
             }
-        }
-    }
 
-    // ── Calibration countdown
-    Rectangle {
-        anchors.fill: parent
-        color: "#CC000000"
-        visible: root.calibrating
-        opacity: 1.0
-        NumberAnimation on opacity {
-            id: calibBgFade
-            running: false
-            to: 0.0
-            duration: root.calibrationSeconds * 1000
-            easing.type: Easing.InOutCubic
+            Item {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Dims.l(64); height: Dims.l(20)
+                LeafPlate {
+                    anchors.fill: parent
+                    color: root.comboEligible ? "#f0ae0e" : "#FFFFFF"
+                    fillOpacity: root.comboEligible ? 0.32 : 0.4
+                }
+                // the title's font marks it as the action, unlike the selector above
+                Label {
+                    anchors.centerIn: parent
+                    text: root.comboEligible ? "COMBO STREAK" : "ENTER ORBIT"
+                    font { family: "Barlow"; styleName: "Bold"; pixelSize: Dims.l(8) }
+                    color: root.comboEligible ? "#f0c30e" : "#FFFFFF"
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: { calibBgFade.restart(); root.launchRequested(root.currentLevel) }
+                }
+            }
+        }
+
+        Label {
+            text: root.version
+            color: "#888888"
+            font.pixelSize: Dims.l(3.5)
+            anchors { left: parent.left; leftMargin: Dims.l(3); bottom: parent.bottom; bottomMargin: Dims.l(2) }
+        }
+        Label {
+            text: "by moWerk"
+            color: "#888888"
+            font.pixelSize: Dims.l(3.5)
+            anchors { right: parent.right; rightMargin: Dims.l(3); bottom: parent.bottom; bottomMargin: Dims.l(2) }
         }
     }
 

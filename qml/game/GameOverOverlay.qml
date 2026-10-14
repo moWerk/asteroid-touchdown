@@ -73,9 +73,17 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#AA000000"
+        color: "black"
         opacity: root.gameOver ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 400 } }
+
+        // SailfishOS: the cover art, dimmed to half (see the title screen)
+        Image {
+            anchors.fill: parent
+            source: "img/title-art.jpg"
+            fillMode: Image.PreserveAspectCrop
+            opacity: 0.5
+        }
 
         Column {
             id: gameOverTop
@@ -163,9 +171,10 @@ Item {
         Column {
             id: buttonsColumn
             anchors.horizontalCenter: parent.horizontalCenter
+            // the same place and sizes as on the title screen
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: Dims.l(6)
-            spacing: Dims.l(3)
+            anchors.bottomMargin: parent.height * 0.08 - Dims.l(2)
+            spacing: Dims.l(5)
 
             ValueCycler {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -181,14 +190,18 @@ Item {
                 onValueChanged: root.selectedLevel = parseInt(value.replace("Level ", ""))
             }
 
-            Rectangle {
+            Item {
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: Dims.l(38); height: Dims.l(12); radius: height / 2
-                color: root.comboEligible ? "#44f0ae0e" : "#55FFFFFF"
+                width: Dims.l(64); height: Dims.l(20)
+                LeafPlate {
+                    anchors.fill: parent
+                    color: root.comboEligible ? "#f0ae0e" : "#FFFFFF"
+                    fillOpacity: root.comboEligible ? 0.32 : 0.4
+                }
                 Label {
                     anchors.centerIn: parent
                     text: root.comboEligible ? "COMBO L" + root.selectedLevel : "FLY L" + root.selectedLevel
-                    font.pixelSize: Dims.l(5)
+                    font { family: "Barlow"; styleName: "Bold"; pixelSize: Dims.l(8) }
                     color: root.comboEligible ? "#f0c30e" : "#FFFFFF"
                 }
                 MouseArea { anchors.fill: parent; onClicked: root.startLevelRequested(root.selectedLevel) }
