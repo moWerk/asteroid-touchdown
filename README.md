@@ -4,6 +4,8 @@ A precision lunar lander game for [AsteroidOS](https://asteroidos.org). Tilt you
 
 ![shot-touchdown4](https://github.com/user-attachments/assets/52617dbf-ef6e-4754-9a88-f69f878d87f0)
 
+[![Touchdown on YouTube](https://img.youtube.com/vi/nh-b8EAU-0Y/0.jpg)](https://www.youtube.com/watch?v=nh-b8EAU-0Y)
+
 ---
 
 ## Gameplay
