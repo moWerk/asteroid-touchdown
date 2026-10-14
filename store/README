@@ -1,0 +1,20 @@
+Store graphics, not part of the package.
+
+cover-1080x540.jpg, banner-1032x504.jpg, banner-516x252.jpg: cut from
+cover art AI-generated with Grok (xAI) in October 2026 from a prompt
+written with the author, in the style of the Asteroid Blaster cover;
+cropped to the landing pad and crater, the grey ground tinted towards
+Blaster's violet with ImageMagick. title-art-864x1920.jpg: the portrait
+cut of a second image from the same prompt, as shipped in
+qml/game/img/title-art.jpg.
+
+screenshot-start-720x1600.png: the title screen on the author's Jolla C2
+(native resolution), 2026-10-14, with a combo chain active (COMBO STREAK).
+screenshot-action-720x1600.png: a flight on level 3 on the C2, combo stash
+1319; chosen by the author from a burst of 12 (one every 10 s), unedited.
+screenshot-gameover-720x1600.png: the game over screen on the C2 after a
+crash on level 4.
+screenshot-*-1080x2400.jpg: the same, scaled by 1.5 to the width the
+Harbour form asks for. icon-172x172.png: the launcher icon.
+
+store-listing.md has every form field.
