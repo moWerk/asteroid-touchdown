@@ -892,7 +892,10 @@ Item {
             visible:       playerDying
             width:         root.width * 1.2
             height:        root.width * 1.2
-            anchors.centerIn: root
+            // SailfishOS: centred on the ship. The phone camera keeps the ship
+            // above the screen centre, where the watch had it.
+            x: shipItem.x + shipItem.width / 2 - width / 2
+            y: shipItem.y + shipItem.height / 2 - height / 2
             deathProgress: app.deathProgress
             ringColor:     "#FF4400"
         }
