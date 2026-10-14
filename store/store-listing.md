@@ -63,4 +63,4 @@ https://raw.githubusercontent.com/moWerk/asteroid-touchdown/sailfishos/store/cov
 
 ## YouTube (optional)
 
-none
+https://www.youtube.com/watch?v=nh-b8EAU-0Y (the AsteroidOS watch version)
