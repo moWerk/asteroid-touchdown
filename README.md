@@ -10,8 +10,9 @@ A precision lunar lander game for [AsteroidOS](https://asteroidos.org). Tilt you
 
 Reviewing the code? Start with [review-and-architecture-hints.md](review-and-architecture-hints.md).
 
-This branch is the SailfishOS version of the game. It is built for
-Sailfish OS 5.1 on aarch64 and was run on a Jolla C2. The game is the
+This branch is the SailfishOS version of the game. It is plain QML, so
+one noarch package runs on Sailfish OS 3.4 and later. It was played on a
+Jolla C2. The game is the
 1.0 watch version; this section lists what is different.
 
 ### On a tall phone screen
@@ -36,6 +37,14 @@ below the camera notch.
 
 ### Only on SailfishOS
 
+- **Title and game over art** (1.2): the title screen shows cover art,
+  with the title centred in its sky and the level selector and ENTER
+  ORBIT at the bottom; the art fades into the game during the countdown.
+  The game over screen shows it dimmed to half. The art is AI-generated
+  (see `qml/game/img/README`). Buttons and the level selector have the
+  SailfishOS leaf shape (top-left and bottom-right corners rounded,
+  `LeafPlate.qml`); the action buttons use the title font.
+
 - **Live cover**: swipe the app away and the flight keeps running in the
   home screen tile. The game has no pause, so the tile has no button.
 
@@ -43,13 +52,14 @@ below the camera notch.
 
 Download the RPM from the releases page and install it:
 
-    devel-su pkcon install-local harbour-asteroid-touchdown-1.0.1-1.aarch64.rpm
+    devel-su pkcon install-local harbour-asteroid-touchdown-1.2.0-1.noarch.rpm
 
-It is aarch64 only. The app runs in the SailfishOS sandbox with the
-Sensors permission: the first start from the app grid asks once to allow
-it. Without it the tilt control does not work. The Jolla Store does not
-allow that permission, so this is for Chum and sideloading. Progress and records are stored in
-`~/.config/net.mowerk/harbour-asteroid-touchdown/game.ini`.
+The app runs in the SailfishOS sandbox with the Camera permission, which
+on SailfishOS includes the motion sensors; the camera is never used. The
+first start from the app grid asks once to allow it. Without it the tilt
+control does not work. The package passes Jolla's store validator.
+Progress and records are stored in dconf under
+`/apps/harbour-asteroid-touchdown`.
 
 ### Build
 
